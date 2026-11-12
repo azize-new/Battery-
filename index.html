@@ -1,0 +1,3214 @@
+<!DOCTYPE html>
+<html lang="en" dir="ltr" class="dark">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+  <title>BatteryLab 3D — Interactive Battery Simulator &amp; Electronics Workbench</title>
+  <!-- Tailwind CSS -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  <!-- Inter & JetBrains Mono Fonts -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <!-- Lucide Icons -->
+  <script src="https://unpkg.com/lucide@latest"></script>
+  <!-- Import Map for Three.js & OrbitControls (ES Modules) -->
+  <script type="importmap">
+    {
+      "imports": {
+        "three": "https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module.js",
+        "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.160.0/examples/jsm/"
+      }
+    }
+  </script>
+  <style>
+    :root {
+      --font-sans: 'Inter', system-ui, -apple-system, sans-serif;
+      --font-mono: 'JetBrains Mono', monospace;
+    }
+    body {
+      font-family: var(--font-sans);
+      background-color: #090d16;
+      color: #e2e8f0;
+      overflow-x: hidden;
+      -webkit-tap-highlight-color: transparent;
+    }
+    .font-mono-tech {
+      font-family: var(--font-mono);
+      font-variant-numeric: tabular-nums;
+    }
+    /* Custom thin engineering scrollbars */
+    ::-webkit-scrollbar {
+      width: 6px;
+      height: 6px;
+    }
+    ::-webkit-scrollbar-track {
+      background: #0f172a;
+    }
+    ::-webkit-scrollbar-thumb {
+      background: #334155;
+      border-radius: 3px;
+    }
+    ::-webkit-scrollbar-thumb:hover {
+      background: #475569;
+    }
+    /* Range slider styling */
+    input[type="range"] {
+      -webkit-appearance: none;
+      background: #1e293b;
+      height: 6px;
+      border-radius: 999px;
+      border: 1px solid #334155;
+    }
+    input[type="range"]::-webkit-slider-thumb {
+      -webkit-appearance: none;
+      width: 16px;
+      height: 16px;
+      border-radius: 50%;
+      background: #06b6d4;
+      cursor: pointer;
+      border: 2px solid #0f172a;
+    }
+    canvas {
+      display: block;
+      outline: none;
+      touch-action: none;
+    }
+    [dir="rtl"] .rtl-flip {
+      transform: scaleX(-1);
+    }
+  </style>
+</head>
+<body class="h-screen flex flex-col overflow-hidden select-none">
+
+  <!-- TOP ENGINEERING HEADER BAR -->
+  <header class="h-14 bg-slate-900/95 border-b border-slate-800 px-3 sm:px-4 flex items-center justify-between gap-2 z-30 shrink-0">
+    <!-- Brand & Mobile Sidebar Toggle -->
+    <div class="flex items-center gap-2.5">
+      <button id="btn-mobile-menu" class="lg:hidden p-2 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700" aria-label="Menu">
+        <i data-lucide="menu" class="w-4 h-4"></i>
+      </button>
+      <div class="flex items-center gap-2">
+        <div class="w-8 h-8 rounded-lg bg-gradient-to-br from-cyan-500 to-blue-600 flex items-center justify-center shadow-lg shadow-cyan-500/20">
+          <i data-lucide="battery-charging" class="w-5 h-5 text-slate-950 stroke-[2.4]"></i>
+        </div>
+        <div>
+          <div class="flex items-center gap-1.5">
+            <span class="font-bold text-sm sm:text-base tracking-tight text-white">BatteryLab <span class="text-cyan-400">3D</span></span>
+            <span class="hidden sm:inline-block text-[10px] font-mono-tech uppercase px-1.5 py-0.5 rounded bg-slate-800 text-cyan-400 border border-slate-700">v2.4 LAB</span>
+          </div>
+          <p class="hidden md:block text-[11px] text-slate-400 leading-none" data-i18n="appSubtitle">3D Battery Pack &amp; Circuit Engineering Suite</p>
+        </div>
+      </div>
+    </div>
+
+    <!-- Live Telemetry Pill (Always Visible) -->
+    <div id="header-telemetry" class="hidden xl:flex items-center gap-4 px-3.5 py-1.5 rounded-lg bg-slate-950/90 border border-slate-800 text-xs font-mono-tech">
+      <div class="flex items-center gap-1.5">
+        <span class="text-slate-400" data-i18n="packConfig">CONFIG:</span>
+        <span id="hdr-topology" class="font-semibold text-cyan-400">1S1P</span>
+      </div>
+      <span class="text-slate-700">|</span>
+      <div class="flex items-center gap-1.5">
+        <span class="text-slate-400">V<sub>nom</sub>:</span>
+        <span id="hdr-voltage" class="font-semibold text-emerald-400">3.70 V</span>
+      </div>
+      <span class="text-slate-700">|</span>
+      <div class="flex items-center gap-1.5">
+        <span class="text-slate-400">CAP:</span>
+        <span id="hdr-capacity" class="font-semibold text-amber-400">2600 mAh</span>
+      </div>
+      <span class="text-slate-700">|</span>
+      <div class="flex items-center gap-1.5">
+        <span class="text-slate-400">E:</span>
+        <span id="hdr-energy" class="font-semibold text-purple-400">9.62 Wh</span>
+      </div>
+    </div>
+
+    <!-- Global Controls: Low-Perf, Project Actions, Language -->
+    <div class="flex items-center gap-1.5 sm:gap-2">
+      <!-- Low-Performance Mode Toggle -->
+      <button id="btn-low-perf" title="Optimize for AMD A4 / Integrated Graphics" class="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-xs font-medium bg-slate-800/90 hover:bg-slate-700 text-slate-300 border border-slate-700 transition">
+        <i data-lucide="cpu" class="w-3.5 h-3.5 text-amber-400"></i>
+        <span class="hidden md:inline" data-i18n="lowPerf">Eco GPU</span>
+        <span id="low-perf-badge" class="w-2 h-2 rounded-full bg-slate-600"></span>
+      </button>
+
+      <!-- Save / Load Modal Trigger -->
+      <button id="btn-projects" class="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-xs font-medium bg-slate-800/90 hover:bg-slate-700 text-slate-200 border border-slate-700 transition">
+        <i data-lucide="folder-kanban" class="w-3.5 h-3.5 text-cyan-400"></i>
+        <span class="hidden sm:inline" data-i18n="projects">Projects</span>
+      </button>
+
+      <!-- Export PNG -->
+      <button id="btn-export-png" class="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-xs font-medium bg-slate-800/90 hover:bg-slate-700 text-slate-200 border border-slate-700 transition" title="Export PNG">
+        <i data-lucide="camera" class="w-3.5 h-3.5 text-emerald-400"></i>
+        <span class="hidden md:inline" data-i18n="exportPng">PNG</span>
+      </button>
+
+      <!-- Reset Workspace -->
+      <button id="btn-reset-all" class="p-1.5 rounded-lg bg-slate-800/90 hover:bg-rose-950/70 text-slate-300 hover:text-rose-400 border border-slate-700 hover:border-rose-800 transition" title="Reset Workspace">
+        <i data-lucide="rotate-ccw" class="w-3.5 h-3.5"></i>
+      </button>
+
+      <!-- Language Selector -->
+      <div class="relative">
+        <select id="lang-selector" aria-label="Language" class="appearance-none bg-slate-800 hover:bg-slate-700 text-slate-200 text-xs font-medium rounded-lg pl-2.5 pr-7 py-1.5 border border-slate-700 focus:outline-none focus:border-cyan-500 cursor-pointer">
+          <option value="en">EN</option>
+          <option value="fr">FR</option>
+          <option value="ar">AR (عربي)</option>
+        </select>
+        <i data-lucide="globe" class="w-3.5 h-3.5 text-slate-400 pointer-events-none absolute top-2 right-2"></i>
+      </div>
+    </div>
+  </header>
+
+  <!-- MAIN APPLICATION SHELL -->
+  <div class="flex-1 flex overflow-hidden relative">
+
+    <!-- SIDEBAR NAVIGATION -->
+    <aside id="sidebar-nav" class="fixed lg:static inset-y-14 start-0 z-20 w-60 bg-slate-900 border-e border-slate-800 flex flex-col justify-between transition-transform duration-200 -translate-x-full lg:translate-x-0">
+      <div class="p-3 space-y-1.5 overflow-y-auto">
+        <div class="px-2.5 py-1.5 text-[10px] font-semibold uppercase tracking-wider text-slate-500" data-i18n="workbenches">Engineering Modules</div>
+
+        <button data-section="simulator" class="nav-tab w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-start text-sm font-medium bg-cyan-500/15 text-cyan-300 border border-cyan-500/30 transition">
+          <i data-lucide="box" class="w-4 h-4 shrink-0 text-cyan-400"></i>
+          <div class="min-w-0">
+            <div class="truncate" data-i18n="navSimulator">3D Battery Simulator</div>
+            <div class="text-[10px] text-slate-400 truncate" data-i18n="navSimulatorSub">Cells, Series/Parallel Wiring</div>
+          </div>
+        </button>
+
+        <button data-section="calculator" class="nav-tab w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-start text-sm font-medium text-slate-300 hover:bg-slate-800/80 border border-transparent transition">
+          <i data-lucide="calculator" class="w-4 h-4 shrink-0 text-emerald-400"></i>
+          <div class="min-w-0">
+            <div class="truncate" data-i18n="navCalculator">Electrical Calculator</div>
+            <div class="text-[10px] text-slate-400 truncate" data-i18n="navCalculatorSub">Ohm's Law, Runtime &amp; Losses</div>
+          </div>
+        </button>
+
+        <button data-section="laboratory" class="nav-tab w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-start text-sm font-medium text-slate-300 hover:bg-slate-800/80 border border-transparent transition">
+          <i data-lucide="cpu" class="w-4 h-4 shrink-0 text-amber-400"></i>
+          <div class="min-w-0">
+            <div class="truncate" data-i18n="navLaboratory">Virtual Electronics Lab</div>
+            <div class="text-[10px] text-slate-400 truncate" data-i18n="navLaboratorySub">Breadboard, MNA Solver &amp; DMM</div>
+          </div>
+        </button>
+
+        <!-- Quick Pack Topology Summary Card inside Sidebar -->
+        <div class="pt-4">
+          <div class="px-2.5 py-1.5 text-[10px] font-semibold uppercase tracking-wider text-slate-500" data-i18n="activePackStatus">Active Pack Telemetry</div>
+          <div class="p-3 rounded-xl bg-slate-950/90 border border-slate-800 space-y-2 text-xs">
+            <div class="flex justify-between items-center">
+              <span class="text-slate-400" data-i18n="topology">Topology</span>
+              <span id="sb-topology" class="font-mono-tech font-bold text-cyan-400">1S1P</span>
+            </div>
+            <div class="flex justify-between items-center">
+              <span class="text-slate-400" data-i18n="cellsCount">Cells</span>
+              <span id="sb-cells" class="font-mono-tech text-slate-200">1</span>
+            </div>
+            <div class="flex justify-between items-center">
+              <span class="text-slate-400" data-i18n="nominalVoltage">Nominal V</span>
+              <span id="sb-vnom" class="font-mono-tech text-emerald-400">3.70 V</span>
+            </div>
+            <div class="flex justify-between items-center">
+              <span class="text-slate-400" data-i18n="totalCapacity">Capacity</span>
+              <span id="sb-cap" class="font-mono-tech text-amber-400">2600 mAh</span>
+            </div>
+            <div class="flex justify-between items-center">
+              <span class="text-slate-400" data-i18n="internalRes">Internal R</span>
+              <span id="sb-rint" class="font-mono-tech text-slate-300">0.030 Ω</span>
+            </div>
+            <div id="sb-safety-badge" class="mt-2 px-2 py-1.5 rounded-lg bg-emerald-950/60 border border-emerald-800/60 text-emerald-300 text-[11px] flex items-center gap-1.5">
+              <i data-lucide="shield-check" class="w-3.5 h-3.5 shrink-0"></i>
+              <span data-i18n="statusSafe">Circuit Nominal</span>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Sidebar Footer: Quick Safety Note -->
+      <div class="p-3 border-t border-slate-800 text-[11px] text-slate-400 bg-slate-950/40">
+        <div class="flex items-center gap-1.5 text-amber-400 font-medium mb-1">
+          <i data-lucide="alert-triangle" class="w-3.5 h-3.5"></i>
+          <span data-i18n="safetyTitle">Engineering Safety</span>
+        </div>
+        <p class="leading-relaxed text-[10px]" data-i18n="safetyNote">Never short-circuit Li-ion cells or parallel cells with &gt;0.2V difference.</p>
+      </div>
+    </aside>
+
+    <!-- ===================================================================== -->
+    <!-- SECTION 1: 3D BATTERY SIMULATOR                                       -->
+    <!-- ===================================================================== -->
+    <main id="section-simulator" class="section-view flex-1 flex flex-col lg:flex-row overflow-hidden">
+      <!-- Center 3D Viewport -->
+      <div class="flex-1 flex flex-col min-w-0 min-h-0 relative bg-slate-950">
+        <!-- 3D Toolbar Overlay -->
+        <div class="p-2.5 bg-slate-900/90 border-b border-slate-800 flex flex-wrap items-center justify-between gap-2 z-10">
+          <!-- Add Battery Presets -->
+          <div class="flex flex-wrap items-center gap-1.5">
+            <span class="text-[11px] font-semibold text-slate-400 me-1" data-i18n="addCell">+ Add Cell:</span>
+            <button data-add-preset="18650" class="px-2.5 py-1.5 rounded-lg bg-slate-800 hover:bg-cyan-950 text-cyan-300 border border-slate-700 hover:border-cyan-600 text-xs font-mono-tech font-medium transition">18650</button>
+            <button data-add-preset="21700" class="px-2.5 py-1.5 rounded-lg bg-slate-800 hover:bg-cyan-950 text-cyan-300 border border-slate-700 hover:border-cyan-600 text-xs font-mono-tech font-medium transition">21700</button>
+            <button data-add-preset="AA" class="px-2.5 py-1.5 rounded-lg bg-slate-800 hover:bg-emerald-950 text-emerald-300 border border-slate-700 hover:border-emerald-600 text-xs font-mono-tech font-medium transition">AA</button>
+            <button data-add-preset="AAA" class="px-2.5 py-1.5 rounded-lg bg-slate-800 hover:bg-emerald-950 text-emerald-300 border border-slate-700 hover:border-emerald-600 text-xs font-mono-tech font-medium transition">AAA</button>
+            <button data-add-preset="CUSTOM" class="px-2.5 py-1.5 rounded-lg bg-slate-800 hover:bg-purple-950 text-purple-300 border border-slate-700 hover:border-purple-600 text-xs font-medium transition" data-i18n="customCell">Custom</button>
+          </div>
+
+          <!-- Interaction Mode & Pack Presets -->
+          <div class="flex flex-wrap items-center gap-1.5">
+            <div class="inline-flex rounded-lg bg-slate-950 p-0.5 border border-slate-800">
+              <button id="mode-select-move" class="px-2.5 py-1 rounded-md text-xs font-medium bg-cyan-600 text-white flex items-center gap-1 transition">
+                <i data-lucide="move" class="w-3.5 h-3.5"></i>
+                <span data-i18n="modeMove">Move / Select</span>
+              </button>
+              <button id="mode-wire" class="px-2.5 py-1 rounded-md text-xs font-medium text-slate-300 hover:text-white flex items-center gap-1 transition">
+                <i data-lucide="cable" class="w-3.5 h-3.5 text-rose-400"></i>
+                <span data-i18n="modeWire">Connect Wire</span>
+              </button>
+            </div>
+
+            <button id="btn-clear-wires" class="px-2.5 py-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-300 border border-slate-700 text-xs flex items-center gap-1 transition" title="Clear all wires">
+              <i data-lucide="scissors" class="w-3.5 h-3.5 text-amber-400"></i>
+              <span class="hidden sm:inline" data-i18n="clearWires">Clear Wires</span>
+            </button>
+
+            <select id="pack-preset-select" class="bg-slate-800 text-slate-200 text-xs rounded-lg px-2.5 py-1.5 border border-slate-700 focus:outline-none focus:border-cyan-500">
+              <option value="" data-i18n="loadPackPreset">Example Packs...</option>
+              <option value="1s1p">1S1P Single 18650 (3.7V)</option>
+              <option value="3s1p">3S1P Series Pack (11.1V)</option>
+              <option value="1s3p">1S3P Parallel Bank (3.7V / 7800mAh)</option>
+              <option value="2s2p">2S2P Series-Parallel (7.4V / 5200mAh)</option>
+              <option value="short_demo">Short Circuit Hazard Demo</option>
+            </select>
+          </div>
+        </div>
+
+        <!-- Three.js Canvas Container -->
+        <div id="three-container" class="flex-1 relative w-full h-full min-h-[280px] overflow-hidden">
+          <!-- Floating Instruction Pill -->
+          <div id="sim-hint-banner" class="absolute top-3 start-3 z-10 pointer-events-none max-w-md px-3 py-1.5 rounded-lg bg-slate-900/85 backdrop-blur border border-slate-700/80 text-[11px] text-slate-300 flex items-center gap-2">
+            <i data-lucide="info" class="w-3.5 h-3.5 text-cyan-400 shrink-0"></i>
+            <span id="sim-hint-text" data-i18n="hintMove">Click a battery to configure or drag on grid. Switch to "Connect Wire" to link + and - terminals.</span>
+          </div>
+
+          <!-- Camera View Buttons -->
+          <div class="absolute bottom-3 start-3 z-10 flex items-center gap-1.5">
+            <button id="btn-cam-top" class="px-2.5 py-1.5 rounded-lg bg-slate-900/90 hover:bg-slate-800 text-slate-300 border border-slate-700 text-[11px] font-medium">Top</button>
+            <button id="btn-cam-iso" class="px-2.5 py-1.5 rounded-lg bg-slate-900/90 hover:bg-slate-800 text-slate-300 border border-slate-700 text-[11px] font-medium">3D Iso</button>
+            <button id="btn-cam-front" class="px-2.5 py-1.5 rounded-lg bg-slate-900/90 hover:bg-slate-800 text-slate-300 border border-slate-700 text-[11px] font-medium">Side</button>
+          </div>
+
+          <!-- Legend Overlay -->
+          <div class="absolute bottom-3 end-3 z-10 hidden sm:flex items-center gap-3 px-3 py-1.5 rounded-lg bg-slate-900/90 border border-slate-800 text-[11px]">
+            <span class="flex items-center gap-1"><span class="w-2.5 h-2.5 rounded-full bg-red-500 inline-block"></span> (+) Bus</span>
+            <span class="flex items-center gap-1"><span class="w-2.5 h-2.5 rounded-full bg-slate-400 inline-block"></span> (-) Bus</span>
+            <span class="flex items-center gap-1"><span class="w-2.5 h-2.5 rounded-full bg-amber-500 inline-block"></span> Series Link</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- Right Properties & Topology Inspector Panel -->
+      <aside class="w-full lg:w-80 xl:w-96 bg-slate-900 border-t lg:border-t-0 lg:border-s border-slate-800 flex flex-col max-h-[46vh] lg:max-h-none overflow-y-auto shrink-0">
+        <!-- Selected Battery Configuration -->
+        <div class="p-3.5 border-b border-slate-800">
+          <div class="flex items-center justify-between mb-3">
+            <h2 class="text-xs font-bold uppercase tracking-wider text-slate-300 flex items-center gap-1.5">
+              <i data-lucide="sliders" class="w-3.5 h-3.5 text-cyan-400"></i>
+              <span data-i18n="cellProperties">Selected Cell Properties</span>
+            </h2>
+            <button id="btn-delete-battery" class="px-2 py-1 rounded bg-rose-950/70 hover:bg-rose-900 text-rose-300 border border-rose-800/70 text-[11px] flex items-center gap-1 transition">
+              <i data-lucide="trash-2" class="w-3 h-3"></i>
+              <span data-i18n="remove">Remove</span>
+            </button>
+          </div>
+
+          <div id="no-battery-selected" class="hidden py-6 text-center text-xs text-slate-500" data-i18n="selectBatteryPrompt">
+            Select a battery in the 3D workspace to edit its electrical parameters.
+          </div>
+
+          <div id="battery-props-form" class="space-y-2.5 text-xs">
+            <div class="grid grid-cols-2 gap-2">
+              <div>
+                <label class="block text-[11px] text-slate-400 mb-1" data-i18n="cellModel">Format / Size</label>
+                <select id="prop-format" class="w-full bg-slate-950 border border-slate-700 rounded-lg px-2 py-1.5 text-slate-200 font-mono-tech">
+                  <option value="18650">18650</option>
+                  <option value="21700">21700</option>
+                  <option value="AA">AA</option>
+                  <option value="AAA">AAA</option>
+                  <option value="CUSTOM">Custom Cell</option>
+                </select>
+              </div>
+              <div>
+                <label class="block text-[11px] text-slate-400 mb-1" data-i18n="chemistry">Chemistry</label>
+                <select id="prop-chemistry" class="w-full bg-slate-950 border border-slate-700 rounded-lg px-2 py-1.5 text-slate-200">
+                  <option value="Li-ion">Li-ion (3.7V)</option>
+                  <option value="LiFePO4">LiFePO4 (3.2V)</option>
+                  <option value="NiMH">NiMH (1.2V)</option>
+                  <option value="Alkaline">Alkaline (1.5V)</option>
+                </select>
+              </div>
+            </div>
+
+            <div class="grid grid-cols-3 gap-2">
+              <div>
+                <label class="block text-[11px] text-slate-400 mb-1" data-i18n="voltageV">Nominal (V)</label>
+                <input id="prop-voltage" type="number" step="0.1" min="0.5" max="48" class="w-full bg-slate-950 border border-slate-700 rounded-lg px-2 py-1.5 text-emerald-400 font-mono-tech" />
+              </div>
+              <div>
+                <label class="block text-[11px] text-slate-400 mb-1" data-i18n="capacityMah">Cap (mAh)</label>
+                <input id="prop-capacity" type="number" step="50" min="50" max="100000" class="w-full bg-slate-950 border border-slate-700 rounded-lg px-2 py-1.5 text-amber-400 font-mono-tech" />
+              </div>
+              <div>
+                <label class="block text-[11px] text-slate-400 mb-1" data-i18n="rintOhm">R<sub>int</sub> (Ω)</label>
+                <input id="prop-rint" type="number" step="0.005" min="0.001" max="10" class="w-full bg-slate-950 border border-slate-700 rounded-lg px-2 py-1.5 text-cyan-400 font-mono-tech" />
+              </div>
+            </div>
+
+            <!-- State of Charge Slider -->
+            <div>
+              <div class="flex justify-between text-[11px] mb-1">
+                <span class="text-slate-400" data-i18n="soc">State of Charge (SoC)</span>
+                <span id="prop-soc-val" class="font-mono-tech font-semibold text-cyan-400">100% (4.20V)</span>
+              </div>
+              <input id="prop-soc" type="range" min="0" max="100" value="100" class="w-full" />
+            </div>
+
+            <!-- Orientation & Grid Controls -->
+            <div class="pt-1 flex items-center justify-between gap-2">
+              <span class="text-[11px] text-slate-400" data-i18n="orientation">Orientation:</span>
+              <div class="flex items-center gap-1.5">
+                <button id="btn-rotate-left" class="px-2 py-1 rounded bg-slate-800 hover:bg-slate-700 border border-slate-700 text-slate-200 flex items-center gap-1">
+                  <i data-lucide="rotate-ccw" class="w-3 h-3"></i> -90°
+                </button>
+                <button id="btn-rotate-right" class="px-2 py-1 rounded bg-slate-800 hover:bg-slate-700 border border-slate-700 text-slate-200 flex items-center gap-1">
+                  <i data-lucide="rotate-cw" class="w-3 h-3"></i> +90°
+                </button>
+                <button id="btn-flip-polarity" class="px-2 py-1 rounded bg-slate-800 hover:bg-slate-700 border border-slate-700 text-amber-300 flex items-center gap-1" title="Flip 180°">
+                  <i data-lucide="arrow-left-right" class="w-3 h-3"></i> 180°
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Active Wires & Topology Diagnostics -->
+        <div class="p-3.5 space-y-3 flex-1">
+          <div class="flex items-center justify-between">
+            <h3 class="text-xs font-bold uppercase tracking-wider text-slate-300 flex items-center gap-1.5">
+              <i data-lucide="git-merge" class="w-3.5 h-3.5 text-emerald-400"></i>
+              <span data-i18n="topologyAnalysis">Pack Topology &amp; Safety</span>
+            </h3>
+            <span id="diag-topology-badge" class="px-2 py-0.5 rounded bg-cyan-950 text-cyan-300 border border-cyan-800 font-mono-tech text-xs font-bold">1S1P</span>
+          </div>
+
+          <!-- Safety Alerts List -->
+          <div id="safety-alerts-container" class="space-y-1.5 text-xs"></div>
+
+          <!-- Live Pack Summary Grid -->
+          <div class="grid grid-cols-2 gap-2 text-xs">
+            <div class="p-2.5 rounded-lg bg-slate-950 border border-slate-800">
+              <div class="text-[10px] text-slate-400" data-i18n="nominalVoltage">Nominal Voltage</div>
+              <div id="diag-vnom" class="text-sm font-mono-tech font-bold text-emerald-400 mt-0.5">3.70 V</div>
+            </div>
+            <div class="p-2.5 rounded-lg bg-slate-950 border border-slate-800">
+              <div class="text-[10px] text-slate-400" data-i18n="fullChargeVoltage">Max Charged (100%)</div>
+              <div id="diag-vmax" class="text-sm font-mono-tech font-bold text-cyan-400 mt-0.5">4.20 V</div>
+            </div>
+            <div class="p-2.5 rounded-lg bg-slate-950 border border-slate-800">
+              <div class="text-[10px] text-slate-400" data-i18n="totalCapacity">Pack Capacity</div>
+              <div id="diag-cap" class="text-sm font-mono-tech font-bold text-amber-400 mt-0.5">2600 mAh</div>
+            </div>
+            <div class="p-2.5 rounded-lg bg-slate-950 border border-slate-800">
+              <div class="text-[10px] text-slate-400" data-i18n="totalEnergy">Stored Energy</div>
+              <div id="diag-energy" class="text-sm font-mono-tech font-bold text-purple-400 mt-0.5">9.62 Wh</div>
+            </div>
+          </div>
+
+          <!-- Wire Connections List -->
+          <div>
+            <div class="flex items-center justify-between text-[11px] text-slate-400 mb-1.5">
+              <span data-i18n="wireConnections">Wire Connections</span>
+              <span id="wire-count" class="font-mono-tech">0</span>
+            </div>
+            <div id="wire-list" class="space-y-1 max-h-36 overflow-y-auto text-[11px]"></div>
+          </div>
+        </div>
+      </aside>
+    </main>
+
+    <!-- ===================================================================== -->
+    <!-- SECTION 2: ELECTRICAL CALCULATOR                                      -->
+    <!-- ===================================================================== -->
+    <main id="section-calculator" class="section-view hidden flex-1 overflow-y-auto p-4 sm:p-6 bg-slate-950">
+      <div class="max-w-6xl mx-auto space-y-6">
+        <!-- Header & Load Configuration Bar -->
+        <div class="bg-slate-900 border border-slate-800 rounded-2xl p-4 sm:p-5 flex flex-col md:flex-row md:items-center justify-between gap-4">
+          <div>
+            <h1 class="text-lg sm:text-xl font-bold text-white flex items-center gap-2">
+              <i data-lucide="zap" class="w-5 h-5 text-emerald-400"></i>
+              <span data-i18n="calcTitle">Battery Pack Electrical Engineering Calculator</span>
+            </h1>
+            <p class="text-xs text-slate-400 mt-1" data-i18n="calcSubtitle">
+              Real-time analysis synchronized with your 3D battery pack topology, including internal resistance voltage sag and thermal loss.
+            </p>
+          </div>
+
+          <!-- Load Parameters Input -->
+          <div class="flex flex-wrap items-center gap-3 bg-slate-950 p-3 rounded-xl border border-slate-800">
+            <div>
+              <label class="block text-[10px] uppercase tracking-wider text-slate-400 mb-1" data-i18n="loadMode">Load Definition</label>
+              <select id="calc-load-mode" class="bg-slate-900 border border-slate-700 rounded-lg px-2.5 py-1.5 text-xs text-slate-200">
+                <option value="resistance" data-i18n="byResistance">Resistive Load (Ω)</option>
+                <option value="current" data-i18n="byCurrent">Constant Current (A)</option>
+                <option value="power" data-i18n="byPower">Constant Power (W)</option>
+              </select>
+            </div>
+            <div>
+              <label id="calc-load-label" class="block text-[10px] uppercase tracking-wider text-cyan-400 mb-1">Load R (Ω)</label>
+              <input id="calc-load-value" type="number" step="0.1" min="0.05" max="100000" value="4.0" class="w-28 bg-slate-900 border border-slate-700 rounded-lg px-2.5 py-1.5 text-xs font-mono-tech text-white focus:border-cyan-500 focus:outline-none" />
+            </div>
+            <button id="btn-sync-lab-source" class="self-end px-3 py-1.5 rounded-lg bg-cyan-600 hover:bg-cyan-500 text-slate-950 font-semibold text-xs flex items-center gap-1.5 transition">
+              <i data-lucide="arrow-right-circle" class="w-3.5 h-3.5"></i>
+              <span data-i18n="sendToLab">Use Pack in Lab</span>
+            </button>
+          </div>
+        </div>
+
+        <!-- Primary KPI Telemetry Cards -->
+        <div class="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3">
+          <div class="bg-slate-900 border border-slate-800 rounded-xl p-3.5">
+            <div class="text-[11px] text-slate-400" data-i18n="openCircuitV">Open-Circuit V<sub>oc</sub></div>
+            <div id="kpi-voc" class="text-lg sm:text-xl font-mono-tech font-bold text-emerald-400 mt-1">3.70 V</div>
+            <div id="kpi-vnom-sub" class="text-[10px] text-slate-500 mt-0.5 font-mono-tech">Nom: 3.70V</div>
+          </div>
+
+          <div class="bg-slate-900 border border-slate-800 rounded-xl p-3.5">
+            <div class="text-[11px] text-slate-400" data-i18n="loadedTerminalV">Loaded Terminal V</div>
+            <div id="kpi-vterm" class="text-lg sm:text-xl font-mono-tech font-bold text-cyan-400 mt-1">3.67 V</div>
+            <div id="kpi-vsag" class="text-[10px] text-amber-400 mt-0.5 font-mono-tech">Sag: -0.03 V</div>
+          </div>
+
+          <div class="bg-slate-900 border border-slate-800 rounded-xl p-3.5">
+            <div class="text-[11px] text-slate-400" data-i18n="totalCapacity">Total Capacity</div>
+            <div id="kpi-cap" class="text-lg sm:text-xl font-mono-tech font-bold text-amber-400 mt-1">2600 mAh</div>
+            <div id="kpi-ah" class="text-[10px] text-slate-500 mt-0.5 font-mono-tech">2.60 Ah</div>
+          </div>
+
+          <div class="bg-slate-900 border border-slate-800 rounded-xl p-3.5">
+            <div class="text-[11px] text-slate-400" data-i18n="dischargeCurrent">Load Current (I)</div>
+            <div id="kpi-current" class="text-lg sm:text-xl font-mono-tech font-bold text-blue-400 mt-1">0.92 A</div>
+            <div id="kpi-crate" class="text-[10px] text-slate-400 mt-0.5 font-mono-tech">0.35 C-rate</div>
+          </div>
+
+          <div class="bg-slate-900 border border-slate-800 rounded-xl p-3.5">
+            <div class="text-[11px] text-slate-400" data-i18n="loadPower">Load Power (P)</div>
+            <div id="kpi-power" class="text-lg sm:text-xl font-mono-tech font-bold text-purple-400 mt-1">3.37 W</div>
+            <div id="kpi-ploss" class="text-[10px] text-rose-400 mt-0.5 font-mono-tech">Heat: 0.03 W</div>
+          </div>
+
+          <div class="bg-slate-900 border border-slate-800 rounded-xl p-3.5">
+            <div class="text-[11px] text-slate-400" data-i18n="estRuntime">Est. Runtime</div>
+            <div id="kpi-runtime" class="text-lg sm:text-xl font-mono-tech font-bold text-white mt-1">2h 50m</div>
+            <div id="kpi-energy" class="text-[10px] text-slate-400 mt-0.5 font-mono-tech">9.62 Wh</div>
+          </div>
+        </div>
+
+        <!-- Step-by-Step Mathematical Derivation & Theoretical vs Loaded Comparison -->
+        <div class="grid grid-cols-1 lg:grid-cols-2 gap-4">
+          <!-- Step-by-Step Formulas -->
+          <div class="bg-slate-900 border border-slate-800 rounded-2xl p-4 sm:p-5 space-y-3">
+            <h2 class="text-sm font-bold text-white flex items-center gap-2">
+              <i data-lucide="function-square" class="w-4 h-4 text-cyan-400"></i>
+              <span data-i18n="formulaStepsTitle">Step-by-Step Engineering Derivation</span>
+            </h2>
+            <div id="formula-steps-list" class="space-y-2.5 text-xs font-mono-tech"></div>
+          </div>
+
+          <!-- Theoretical vs Loaded & Safety Analysis -->
+          <div class="bg-slate-900 border border-slate-800 rounded-2xl p-4 sm:p-5 space-y-4">
+            <h2 class="text-sm font-bold text-white flex items-center gap-2">
+              <i data-lucide="activity" class="w-4 h-4 text-amber-400"></i>
+              <span data-i18n="theoreticalVsActual">Theoretical Ideal vs. Loaded Real-World</span>
+            </h2>
+
+            <div class="overflow-x-auto">
+              <table class="w-full text-xs text-start border-collapse">
+                <thead>
+                  <tr class="border-b border-slate-800 text-slate-400">
+                    <th class="py-2 text-start font-medium" data-i18n="parameter">Parameter</th>
+                    <th class="py-2 text-end font-medium" data-i18n="theoreticalIdeal">Theoretical (No Loss)</th>
+                    <th class="py-2 text-end font-medium text-cyan-400" data-i18n="actualLoaded">Loaded (With R<sub>int</sub>)</th>
+                  </tr>
+                </thead>
+                <tbody id="comparison-table-body" class="divide-y divide-slate-800/70 font-mono-tech"></tbody>
+              </table>
+            </div>
+
+            <!-- Efficiency Bar -->
+            <div class="p-3 rounded-xl bg-slate-950 border border-slate-800">
+              <div class="flex justify-between text-xs mb-1.5">
+                <span class="text-slate-400" data-i18n="electricalEfficiency">Pack Delivery Efficiency (η)</span>
+                <span id="calc-efficiency-val" class="font-mono-tech font-bold text-emerald-400">99.2%</span>
+              </div>
+              <div class="w-full h-2 bg-slate-800 rounded-full overflow-hidden">
+                <div id="calc-efficiency-bar" class="h-full bg-gradient-to-r from-emerald-500 to-cyan-400 transition-all duration-300" style="width: 99%"></div>
+              </div>
+            </div>
+
+            <!-- Calculator Safety Warnings -->
+            <div id="calc-warnings-box" class="space-y-1.5 text-xs"></div>
+          </div>
+        </div>
+      </div>
+    </main>
+
+    <!-- ===================================================================== -->
+    <!-- SECTION 3: VIRTUAL ELECTRONICS LABORATORY                             -->
+    <!-- ===================================================================== -->
+    <main id="section-laboratory" class="section-view hidden flex-1 flex flex-col lg:flex-row overflow-hidden">
+      <!-- Center Breadboard Workbench -->
+      <div class="flex-1 flex flex-col min-w-0 min-h-0 bg-slate-950">
+        <!-- Lab Component Palette Toolbar -->
+        <div class="p-2.5 bg-slate-900/95 border-b border-slate-800 flex flex-wrap items-center justify-between gap-2 z-10">
+          <div class="flex flex-wrap items-center gap-1.5">
+            <button data-lab-tool="select" class="lab-tool-btn px-2.5 py-1.5 rounded-lg bg-cyan-600 text-white text-xs font-medium flex items-center gap-1.5">
+              <i data-lucide="mouse-pointer" class="w-3.5 h-3.5"></i>
+              <span data-i18n="toolInteract">Interact / Move</span>
+            </button>
+            <button data-lab-tool="wire" class="lab-tool-btn px-2.5 py-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700 text-xs font-medium flex items-center gap-1.5">
+              <i data-lucide="spline" class="w-3.5 h-3.5 text-emerald-400"></i>
+              <span data-i18n="toolWire">Wire</span>
+            </button>
+            <button data-lab-tool="battery" class="lab-tool-btn px-2.5 py-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700 text-xs font-medium flex items-center gap-1.5">
+              <i data-lucide="battery" class="w-3.5 h-3.5 text-amber-400"></i>
+              <span data-i18n="toolBattery">+ DC Source</span>
+            </button>
+            <button data-lab-tool="resistor" class="lab-tool-btn px-2.5 py-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700 text-xs font-medium flex items-center gap-1.5">
+              <i data-lucide="activity" class="w-3.5 h-3.5 text-cyan-400"></i>
+              <span data-i18n="toolResistor">+ Resistor</span>
+            </button>
+            <button data-lab-tool="led" class="lab-tool-btn px-2.5 py-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700 text-xs font-medium flex items-center gap-1.5">
+              <i data-lucide="lightbulb" class="w-3.5 h-3.5 text-rose-400"></i>
+              <span data-i18n="toolLed">+ LED</span>
+            </button>
+            <button data-lab-tool="switch" class="lab-tool-btn px-2.5 py-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700 text-xs font-medium flex items-center gap-1.5">
+              <i data-lucide="toggle-right" class="w-3.5 h-3.5 text-purple-400"></i>
+              <span data-i18n="toolSwitch">+ Switch</span>
+            </button>
+          </div>
+
+          <div class="flex items-center gap-1.5">
+            <select id="lab-preset-select" class="bg-slate-800 text-slate-200 text-xs rounded-lg px-2.5 py-1.5 border border-slate-700 focus:outline-none focus:border-cyan-500">
+              <option value="" data-i18n="labExamples">Example Circuits...</option>
+              <option value="led_resistor">LED + 220Ω Current Limiter</option>
+              <option value="voltage_divider">Resistive Voltage Divider (1kΩ / 1kΩ)</option>
+              <option value="parallel_leds">Switched Parallel LEDs</option>
+              <option value="short_test">Short Circuit &amp; LED Burnout Demo</option>
+            </select>
+            <button id="btn-lab-clear" class="px-2.5 py-1.5 rounded-lg bg-slate-800 hover:bg-rose-950 text-slate-300 hover:text-rose-300 border border-slate-700 text-xs">
+              <i data-lucide="trash-2" class="w-3.5 h-3.5"></i>
+            </button>
+          </div>
+        </div>
+
+        <!-- Interactive Breadboard Canvas -->
+        <div id="lab-canvas-wrapper" class="flex-1 relative w-full h-full min-h-[300px] overflow-hidden bg-[#0b101b]">
+          <canvas id="lab-canvas" class="w-full h-full"></canvas>
+          <!-- Lab Status Banner -->
+          <div id="lab-status-pill" class="absolute top-3 start-3 px-3 py-1.5 rounded-lg bg-slate-900/90 border border-slate-700 text-xs flex items-center gap-2 pointer-events-none">
+            <span id="lab-status-dot" class="w-2 h-2 rounded-full bg-emerald-400"></span>
+            <span id="lab-status-text" class="text-slate-200">MNA Circuit Solver Ready</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- Right Lab Inspector & Virtual Multimeter -->
+      <aside class="w-full lg:w-80 xl:w-96 bg-slate-900 border-t lg:border-t-0 lg:border-s border-slate-800 flex flex-col max-h-[46vh] lg:max-h-none overflow-y-auto shrink-0">
+        <!-- Virtual Digital Multimeter (DMM) -->
+        <div class="p-3.5 border-b border-slate-800 bg-slate-900/90">
+          <div class="flex items-center justify-between mb-2">
+            <h2 class="text-xs font-bold uppercase tracking-wider text-amber-400 flex items-center gap-1.5">
+              <i data-lucide="gauge" class="w-3.5 h-3.5"></i>
+              <span data-i18n="multimeterTitle">Virtual Digital Multimeter</span>
+            </h2>
+            <span class="text-[10px] font-mono-tech text-slate-400">TRUE RMS / DC</span>
+          </div>
+
+          <!-- DMM LCD Screen -->
+          <div class="p-3 rounded-xl bg-[#16221b] border-2 border-slate-700 shadow-inner mb-2.5">
+            <div class="flex justify-between items-center text-[10px] font-mono-tech text-emerald-500/80 mb-0.5">
+              <span id="dmm-mode-label">DC VOLTAGE (V)</span>
+              <span id="dmm-probes-label">RED: A1 | BLK: GND</span>
+            </div>
+            <div id="dmm-display" class="text-2xl font-mono-tech font-bold text-emerald-300 tracking-wider text-end">
+              0.000 V
+            </div>
+          </div>
+
+          <!-- DMM Mode Buttons -->
+          <div class="grid grid-cols-4 gap-1.5 text-[11px] font-mono-tech mb-2">
+            <button data-dmm-mode="V" class="dmm-mode-btn py-1.5 rounded bg-amber-500 text-slate-950 font-bold">V DC</button>
+            <button data-dmm-mode="A" class="dmm-mode-btn py-1.5 rounded bg-slate-800 text-slate-300 hover:bg-slate-700">mA DC</button>
+            <button data-dmm-mode="R" class="dmm-mode-btn py-1.5 rounded bg-slate-800 text-slate-300 hover:bg-slate-700">Ω RES</button>
+            <button data-dmm-mode="CONT" class="dmm-mode-btn py-1.5 rounded bg-slate-800 text-slate-300 hover:bg-slate-700">CONT</button>
+          </div>
+
+          <!-- Probe Placement Buttons -->
+          <div class="grid grid-cols-2 gap-2 text-xs">
+            <button id="btn-place-red-probe" class="px-2.5 py-1.5 rounded-lg bg-rose-950/80 hover:bg-rose-900 text-rose-300 border border-rose-700/80 flex items-center justify-center gap-1.5 transition">
+              <span class="w-2.5 h-2.5 rounded-full bg-rose-500"></span>
+              <span data-i18n="moveRedProbe">Place Red (+)</span>
+            </button>
+            <button id="btn-place-black-probe" class="px-2.5 py-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-600 flex items-center justify-center gap-1.5 transition">
+              <span class="w-2.5 h-2.5 rounded-full bg-slate-400"></span>
+              <span data-i18n="moveBlackProbe">Place Black (-)</span>
+            </button>
+          </div>
+        </div>
+
+        <!-- Selected Lab Component Properties -->
+        <div class="p-3.5 border-b border-slate-800">
+          <div class="flex items-center justify-between mb-2">
+            <h3 class="text-xs font-bold uppercase tracking-wider text-slate-300" data-i18n="componentProps">Component Properties</h3>
+            <button id="btn-lab-delete-comp" class="hidden px-2 py-1 rounded bg-rose-950/70 hover:bg-rose-900 text-rose-300 border border-rose-800 text-[11px]">
+              <i data-lucide="trash-2" class="w-3 h-3 inline"></i> <span data-i18n="remove">Remove</span>
+            </button>
+          </div>
+          <div id="lab-comp-inspector" class="text-xs text-slate-400">
+            <p data-i18n="selectLabCompHint">Click any component or wire on the breadboard to inspect or modify its value.</p>
+          </div>
+        </div>
+
+        <!-- Live Circuit Analysis Summary -->
+        <div class="p-3.5 space-y-2 text-xs">
+          <h3 class="text-xs font-bold uppercase tracking-wider text-slate-300" data-i18n="circuitTelemetry">Circuit Solver Telemetry</h3>
+          <div class="grid grid-cols-2 gap-2 font-mono-tech">
+            <div class="p-2 rounded-lg bg-slate-950 border border-slate-800">
+              <div class="text-[10px] text-slate-400">Supply V</div>
+              <div id="lab-tel-v" class="text-sm font-bold text-emerald-400">0.00 V</div>
+            </div>
+            <div class="p-2 rounded-lg bg-slate-950 border border-slate-800">
+              <div class="text-[10px] text-slate-400">Total Current</div>
+              <div id="lab-tel-i" class="text-sm font-bold text-cyan-400">0.0 mA</div>
+            </div>
+          </div>
+          <div id="lab-diagnostics-list" class="space-y-1.5 pt-1"></div>
+        </div>
+      </aside>
+    </main>
+  </div>
+
+  <!-- ===================================================================== -->
+  <!-- PROJECTS MODAL (LOCALSTORAGE SAVE / LOAD)                             -->
+  <!-- ===================================================================== -->
+  <div id="projects-modal" class="hidden fixed inset-0 z-50 bg-slate-950/80 backdrop-blur-sm flex items-center justify-center p-4">
+    <div class="bg-slate-900 border border-slate-700 rounded-2xl max-w-md w-full p-5 shadow-2xl space-y-4">
+      <div class="flex items-center justify-between">
+        <h3 class="text-base font-bold text-white flex items-center gap-2">
+          <i data-lucide="folder-kanban" class="w-4 h-4 text-cyan-400"></i>
+          <span data-i18n="savedProjects">Saved Engineering Projects</span>
+        </h3>
+        <button id="btn-close-projects" class="p-1 rounded-lg hover:bg-slate-800 text-slate-400">
+          <i data-lucide="x" class="w-4 h-4"></i>
+        </button>
+      </div>
+
+      <div class="flex gap-2">
+        <input id="project-name-input" type="text" placeholder="Project name (e.g., E-Bike 10S Pack)" class="flex-1 bg-slate-950 border border-slate-700 rounded-lg px-3 py-2 text-xs text-white focus:border-cyan-500 focus:outline-none" />
+        <button id="btn-save-project" class="px-3.5 py-2 rounded-lg bg-cyan-600 hover:bg-cyan-500 text-slate-950 font-semibold text-xs transition" data-i18n="save">Save</button>
+      </div>
+
+      <div id="saved-projects-list" class="space-y-2 max-h-60 overflow-y-auto text-xs"></div>
+    </div>
+  </div>
+
+  <!-- TOAST / MESSAGE NOTIFICATION -->
+  <div id="toast-box" class="fixed bottom-4 end-4 z-50 pointer-events-none transition-all duration-200 opacity-0 translate-y-2">
+    <div id="toast-content" class="px-4 py-2.5 rounded-xl bg-slate-900 border border-cyan-500/50 text-slate-100 text-xs shadow-xl flex items-center gap-2"></div>
+  </div>
+
+  <!-- ===================================================================== -->
+  <!-- APPLICATION JAVASCRIPT (MODULAR ARCHITECTURE IN SINGLE FILE)          -->
+  <!-- ===================================================================== -->
+  <script type="module">
+    import * as THREE from 'three';
+    import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
+
+    // =========================================================================
+    // 1. LOCALIZATION MODULE (EN, FR, AR with RTL support)
+    // =========================================================================
+    const I18N = {
+      en: {
+        appSubtitle: "3D Battery Pack & Circuit Engineering Suite",
+        packConfig: "CONFIG:",
+        lowPerf: "Eco GPU",
+        projects: "Projects",
+        exportPng: "PNG",
+        workbenches: "Engineering Modules",
+        navSimulator: "3D Battery Simulator",
+        navSimulatorSub: "Cells, Series/Parallel Wiring",
+        navCalculator: "Electrical Calculator",
+        navCalculatorSub: "Ohm's Law, Runtime & Losses",
+        navLaboratory: "Virtual Electronics Lab",
+        navLaboratorySub: "Breadboard, MNA Solver & DMM",
+        activePackStatus: "Active Pack Telemetry",
+        topology: "Topology",
+        cellsCount: "Cells",
+        nominalVoltage: "Nominal V",
+        totalCapacity: "Capacity",
+        internalRes: "Internal R",
+        statusSafe: "Circuit Nominal",
+        safetyTitle: "Engineering Safety",
+        safetyNote: "Never short-circuit Li-ion cells or parallel cells with >0.2V difference.",
+        addCell: "+ Add Cell:",
+        customCell: "Custom",
+        modeMove: "Move / Select",
+        modeWire: "Connect Wire",
+        clearWires: "Clear Wires",
+        loadPackPreset: "Example Packs...",
+        hintMove: "Click a battery to select or drag on grid. Switch to 'Connect Wire' to link (+) and (-) terminals.",
+        hintWire: "Click a terminal (+ or -) on one battery, then click a target terminal on another battery.",
+        cellProperties: "Selected Cell Properties",
+        remove: "Remove",
+        selectBatteryPrompt: "Select a battery in the 3D workspace to edit its electrical parameters.",
+        cellModel: "Format / Size",
+        chemistry: "Chemistry",
+        voltageV: "Nominal (V)",
+        capacityMah: "Cap (mAh)",
+        rintOhm: "R_int (Ω)",
+        soc: "State of Charge (SoC)",
+        orientation: "Orientation:",
+        topologyAnalysis: "Pack Topology & Safety",
+        fullChargeVoltage: "Max Charged (100%)",
+        totalEnergy: "Stored Energy",
+        wireConnections: "Wire Connections",
+        calcTitle: "Battery Pack Electrical Engineering Calculator",
+        calcSubtitle: "Real-time analysis synchronized with your 3D battery pack topology, including internal resistance voltage sag and thermal loss.",
+        loadMode: "Load Definition",
+        byResistance: "Resistive Load (Ω)",
+        byCurrent: "Constant Current (A)",
+        byPower: "Constant Power (W)",
+        sendToLab: "Use Pack in Lab",
+        openCircuitV: "Open-Circuit Voc",
+        loadedTerminalV: "Loaded Terminal V",
+        dischargeCurrent: "Load Current (I)",
+        loadPower: "Load Power (P)",
+        estRuntime: "Est. Runtime",
+        formulaStepsTitle: "Step-by-Step Engineering Derivation",
+        theoreticalVsActual: "Theoretical Ideal vs. Loaded Real-World",
+        parameter: "Parameter",
+        theoreticalIdeal: "Theoretical (No Loss)",
+        actualLoaded: "Loaded (With R_int)",
+        electricalEfficiency: "Pack Delivery Efficiency (η)",
+        toolInteract: "Interact / Move",
+        toolWire: "Wire",
+        toolBattery: "+ DC Source",
+        toolResistor: "+ Resistor",
+        toolLed: "+ LED",
+        toolSwitch: "+ Switch",
+        labExamples: "Example Circuits...",
+        multimeterTitle: "Virtual Digital Multimeter",
+        moveRedProbe: "Place Red (+)",
+        moveBlackProbe: "Place Black (-)",
+        componentProps: "Component Properties",
+        selectLabCompHint: "Click any component or wire on the breadboard to inspect or modify its value.",
+        circuitTelemetry: "Circuit Solver Telemetry",
+        savedProjects: "Saved Engineering Projects",
+        save: "Save"
+      },
+      fr: {
+        appSubtitle: "Simulateur 3D de Batteries & Laboratoire Électronique",
+        packConfig: "CONFIG :",
+        lowPerf: "Mode Éco",
+        projects: "Projets",
+        exportPng: "PNG",
+        workbenches: "Modules d'Ingénierie",
+        navSimulator: "Simulateur Batterie 3D",
+        navSimulatorSub: "Cellules, Câblage Série/Parallèle",
+        navCalculator: "Calculateur Électrique",
+        navCalculatorSub: "Loi d'Ohm, Autonomie & Pertes",
+        navLaboratory: "Labo Électronique Virtuel",
+        navLaboratorySub: "Platine d'essai, Solveur & Multimètre",
+        activePackStatus: "Télémétrie du Pack Actif",
+        topology: "Topologie",
+        cellsCount: "Cellules",
+        nominalVoltage: "Tension Nom.",
+        totalCapacity: "Capacité",
+        internalRes: "Rés. Interne",
+        statusSafe: "Circuit Nominal",
+        safetyTitle: "Sécurité Électrique",
+        safetyNote: "Ne jamais court-circuiter une cellule Li-ion ni relier en parallèle avec >0.2V d'écart.",
+        addCell: "+ Ajouter :",
+        customCell: "Perso",
+        modeMove: "Déplacer / Sélect.",
+        modeWire: "Câbler Bornes",
+        clearWires: "Effacer Fils",
+        loadPackPreset: "Exemples de Packs...",
+        hintMove: "Cliquez sur une batterie pour la configurer ou glissez-la. Passez en mode 'Câbler' pour relier (+) et (-).",
+        hintWire: "Cliquez sur une borne (+ ou -) d'une cellule, puis sur la borne cible d'une autre cellule.",
+        cellProperties: "Propriétés de la Cellule",
+        remove: "Supprimer",
+        selectBatteryPrompt: "Sélectionnez une batterie dans l'espace 3D pour modifier ses paramètres.",
+        cellModel: "Format / Taille",
+        chemistry: "Chimie",
+        voltageV: "Nominale (V)",
+        capacityMah: "Cap. (mAh)",
+        rintOhm: "R_int (Ω)",
+        soc: "État de Charge (SoC)",
+        orientation: "Orientation :",
+        topologyAnalysis: "Topologie & Sécurité",
+        fullChargeVoltage: "Charge Max (100%)",
+        totalEnergy: "Énergie Stockée",
+        wireConnections: "Connexions Filaires",
+        calcTitle: "Calculateur Électrique de Pack Batterie",
+        calcSubtitle: "Analyse en temps réel synchronisée avec votre pack 3D, incluant la chute de tension interne.",
+        loadMode: "Type de Charge",
+        byResistance: "Résistance de Charge (Ω)",
+        byCurrent: "Courant Constant (A)",
+        byPower: "Puissance Constante (W)",
+        sendToLab: "Utiliser au Labo",
+        openCircuitV: "Tension à Vide Voc",
+        loadedTerminalV: "Tension en Charge",
+        dischargeCurrent: "Courant (I)",
+        loadPower: "Puissance (P)",
+        estRuntime: "Autonomie Est.",
+        formulaStepsTitle: "Détail des Calculs Électriques",
+        theoreticalVsActual: "Théorique Idéal vs. Réel en Charge",
+        parameter: "Paramètre",
+        theoreticalIdeal: "Théorique (Sans perte)",
+        actualLoaded: "En Charge (Avec R_int)",
+        electricalEfficiency: "Rendement Électrique (η)",
+        toolInteract: "Interagir / Dépl.",
+        toolWire: "Fil",
+        toolBattery: "+ Source DC",
+        toolResistor: "+ Résistance",
+        toolLed: "+ LED",
+        toolSwitch: "+ Interrupteur",
+        labExamples: "Circuits Exemples...",
+        multimeterTitle: "Multimètre Numérique Virtuel",
+        moveRedProbe: "Sonde Rouge (+)",
+        moveBlackProbe: "Sonde Noire (-)",
+        componentProps: "Propriétés du Composant",
+        selectLabCompHint: "Cliquez sur un composant ou un fil sur la platine pour modifier sa valeur.",
+        circuitTelemetry: "Télémétrie du Solveur",
+        savedProjects: "Projets Sauvegardés",
+        save: "Enregistrer"
+      },
+      ar: {
+        appSubtitle: "محاكي البطاريات ثلاثي الأبعاد ومختبر الإلكترونيات الافتراضي",
+        packConfig: "التكوين:",
+        lowPerf: "وضع الأداء الخفيف",
+        projects: "المشاريع",
+        exportPng: "صورة PNG",
+        workbenches: "أقسام الهندسة",
+        navSimulator: "محاكي البطاريات 3D",
+        navSimulatorSub: "توصيل التوالي والتوازي",
+        navCalculator: "الحاسبة الكهربائية",
+        navCalculatorSub: "قانون أوم، وقت التشغيل والفقد",
+        navLaboratory: "مختبر الإلكترونيات",
+        navLaboratorySub: "لوحة التجارب والملتيميتر",
+        activePackStatus: "قياسات الحزمة النشطة",
+        topology: "التوصيل",
+        cellsCount: "عدد الخلايا",
+        nominalVoltage: "الجهد الاسمي",
+        totalCapacity: "السعة الكلية",
+        internalRes: "المقاومة الداخلية",
+        statusSafe: "الدائرة آمنة",
+        safetyTitle: "السلامة الكهربائية",
+        safetyNote: "لا تقم أبداً بعمل قصر كهربائي لبطاريات الليثيوم أو توصيلها على التوازي بفرق جهد > 0.2V.",
+        addCell: "+ إضافة خلية:",
+        customCell: "مخصص",
+        modeMove: "تحريك / تحديد",
+        modeWire: "توصيل الأسلاك",
+        clearWires: "مسح الأسلاك",
+        loadPackPreset: "أمثلة جاهزة...",
+        hintMove: "انقر على البطارية لتعديل خصائصها أو اسحبها. اختر 'توصيل الأسلاك' لربط الأقطاب.",
+        hintWire: "انقر على القطب الموجب (+) أو السالب (-) لبطارية ثم انقر على القطب المقابل.",
+        cellProperties: "خصائص الخلية المحددة",
+        remove: "حذف",
+        selectBatteryPrompt: "اختر بطارية في مساحة العمل ثلاثية الأبعاد لتعديل قيمها.",
+        cellModel: "الحجم / النوع",
+        chemistry: "التركيب الكيميائي",
+        voltageV: "الجهد الاسمي (V)",
+        capacityMah: "السعة (mAh)",
+        rintOhm: "المقاومة (Ω)",
+        soc: "نسبة الشحن (SoC)",
+        orientation: "التدوير:",
+        topologyAnalysis: "تحليل التوصيل والسلامة",
+        fullChargeVoltage: "جهد الشحن الكامل",
+        totalEnergy: "الطاقة المخزنة",
+        wireConnections: "الأسلاك المتصلة",
+        calcTitle: "الحاسبة الهندسية لحزمة البطاريات",
+        calcSubtitle: "حسابات فورية متزامنة مع التوصيل ثلاثي الأبعاد تشمل هبوط الجهد بسبب المقاومة الداخلية.",
+        loadMode: "نوع الحمل",
+        byResistance: "مقاومة الحمل (Ω)",
+        byCurrent: "تيار ثابت (A)",
+        byPower: "قدرة ثابتة (W)",
+        sendToLab: "استخدام في المختبر",
+        openCircuitV: "جهد الدائرة المفتوحة",
+        loadedTerminalV: "الجهد تحت الحمل",
+        dischargeCurrent: "التيار المسحوب (I)",
+        loadPower: "القدرة المستهلكة (P)",
+        estRuntime: "وقت التشغيل المقدر",
+        formulaStepsTitle: "خطوات الحساب والمعادلات",
+        theoreticalVsActual: "القيم النظرية مقابل القيم الفعلية تحت الحمل",
+        parameter: "المعامل",
+        theoreticalIdeal: "نظري (مثالي)",
+        actualLoaded: "فعلي (مع المقاومة الداخلية)",
+        electricalEfficiency: "كفاءة نقل الطاقة (η)",
+        toolInteract: "تحديد / تحريك",
+        toolWire: "سلك توصيل",
+        toolBattery: "+ مصدر جهد",
+        toolResistor: "+ مقاومة",
+        toolLed: "+ دايود LED",
+        toolSwitch: "+ مفتاح",
+        labExamples: "دوائر جاهزة...",
+        multimeterTitle: "جهاز القياس الرقمي (Multimeter)",
+        moveRedProbe: "المجس الأحمر (+)",
+        moveBlackProbe: "المجس الأسود (-)",
+        componentProps: "خصائص العنصر",
+        selectLabCompHint: "انقر على أي عنصر أو سلك في لوحة التجارب لتعديل قيمته.",
+        circuitTelemetry: "نتائج تحليل الدائرة",
+        savedProjects: "المشاريع المحفوظة",
+        save: "حفظ"
+      }
+    };
+
+    // =========================================================================
+    // 2. CENTRAL APPLICATION STATE & BATTERY PRESETS
+    // =========================================================================
+    const BATTERY_PRESETS = {
+      '18650': { format: '18650', chemistry: 'Li-ion', voltage: 3.7, capacity: 2600, rint: 0.03, radius: 0.45, height: 1.85, color: 0x0ea5e9 },
+      '21700': { format: '21700', chemistry: 'Li-ion', voltage: 3.7, capacity: 4500, rint: 0.02, radius: 0.52, height: 2.05, color: 0x6366f1 },
+      'AA':    { format: 'AA',    chemistry: 'Alkaline', voltage: 1.5, capacity: 2400, rint: 0.15, radius: 0.35, height: 1.45, color: 0x10b981 },
+      'AAA':   { format: 'AAA',   chemistry: 'Alkaline', voltage: 1.5, capacity: 1100, rint: 0.25, radius: 0.27, height: 1.25, color: 0xf59e0b },
+      'CUSTOM':{ format: 'CUSTOM',chemistry: 'LiFePO4', voltage: 3.2, capacity: 6000, rint: 0.015, radius: 0.55, height: 2.1, color: 0xa855f7 }
+    };
+
+    const CHEMISTRY_SPECS = {
+      'Li-ion':   { vNom: 3.7, vMax: 4.20, vMin: 3.00, color: 0x0ea5e9 },
+      'LiFePO4':  { vNom: 3.2, vMax: 3.65, vMin: 2.50, color: 0xa855f7 },
+      'NiMH':     { vNom: 1.2, vMax: 1.45, vMin: 1.00, color: 0x14b8a6 },
+      'Alkaline': { vNom: 1.5, vMax: 1.60, vMin: 0.90, color: 0x10b981 }
+    };
+
+    const state = {
+      lang: 'en',
+      activeSection: 'simulator',
+      lowPerf: false,
+      interactionMode: 'move', // 'move' | 'wire'
+      selectedBatteryId: null,
+      pendingTerminal: null, // { batteryId, polarity: '+' | '-' }
+      batteries: [],
+      wires: [],
+      packAnalysis: null,
+      calc: {
+        loadMode: 'resistance',
+        loadValue: 4.0
+      }
+    };
+
+    let nextBatId = 1;
+    let nextWireId = 1;
+
+    function showToast(msg, type = 'info') {
+      const box = document.getElementById('toast-box');
+      const content = document.getElementById('toast-content');
+      const iconColor = type === 'error' ? 'text-rose-400' : type === 'warn' ? 'text-amber-400' : 'text-cyan-400';
+      content.innerHTML = `<span class="w-2 h-2 rounded-full ${type === 'error' ? 'bg-rose-500' : type === 'warn' ? 'bg-amber-400' : 'bg-cyan-400'}"></span><span>${msg}</span>`;
+      box.classList.remove('opacity-0', 'translate-y-2');
+      clearTimeout(box._timer);
+      box._timer = setTimeout(() => {
+        box.classList.add('opacity-0', 'translate-y-2');
+      }, 3000);
+    }
+
+    function getCellOpenCircuitVoltage(cell) {
+      const spec = CHEMISTRY_SPECS[cell.chemistry] || CHEMISTRY_SPECS['Li-ion'];
+      const ratio = cell.voltage / spec.vNom;
+      const vFull = spec.vMax * ratio;
+      const vEmpty = spec.vMin * ratio;
+      return vEmpty + (vFull - vEmpty) * (cell.soc / 100);
+    }
+
+    function getCellMaxVoltage(cell) {
+      const spec = CHEMISTRY_SPECS[cell.chemistry] || CHEMISTRY_SPECS['Li-ion'];
+      return spec.vMax * (cell.voltage / spec.vNom);
+    }
+
+    // =========================================================================
+    // 3. GRAPH-BASED BATTERY PACK TOPOLOGY & SAFETY ANALYZER
+    // =========================================================================
+    function analyzeBatteryPack() {
+      const batteries = state.batteries;
+      const wires = state.wires;
+      const warnings = [];
+
+      if (batteries.length === 0) {
+        state.packAnalysis = {
+          topology: '0S0P',
+          cellCount: 0,
+          seriesCount: 0,
+          parallelCount: 0,
+          vNominal: 0,
+          vMax: 0,
+          vOpenCircuit: 0,
+          capacityMah: 0,
+          rInternal: 0,
+          energyWh: 0,
+          warnings: [{ level: 'warn', text: 'Workspace empty. Add battery cells to begin simulation.' }],
+          hasShortCircuit: false,
+          disconnectedCount: 0
+        };
+        return state.packAnalysis;
+      }
+
+      // Union-Find over terminal nodes: `${batId}:+` and `${batId}:-`
+      const parent = new Map();
+      const allNodes = [];
+      for (const b of batteries) {
+        const pNode = `${b.id}:+`;
+        const nNode = `${b.id}:-`;
+        parent.set(pNode, pNode);
+        parent.set(nNode, nNode);
+        allNodes.push(pNode, nNode);
+      }
+
+      function find(x) {
+        if (parent.get(x) !== x) parent.set(x, find(parent.get(x)));
+        return parent.get(x);
+      }
+      function union(a, b) {
+        const ra = find(a), rb = find(b);
+        if (ra !== rb) parent.set(ra, rb);
+      }
+
+      for (const w of wires) {
+        const n1 = `${w.fromBat}:${w.fromPol}`;
+        const n2 = `${w.toBat}:${w.toPol}`;
+        if (parent.has(n1) && parent.has(n2)) {
+          union(n1, n2);
+        }
+      }
+
+      // Check direct short circuit on any individual cell (its + and - in same electrical net)
+      let hasShortCircuit = false;
+      for (const b of batteries) {
+        if (find(`${b.id}:+`) === find(`${b.id}:-`)) {
+          hasShortCircuit = true;
+          warnings.push({
+            level: 'danger',
+            text: `CRITICAL SHORT CIRCUIT on Cell #${b.id} (${b.format})! Positive (+) and Negative (-) terminals are directly bridged.`
+          });
+        }
+      }
+
+      // Group batteries into Parallel Banks (cells sharing both + net and - net)
+      const bankMap = new Map();
+      for (const b of batteries) {
+        const netP = find(`${b.id}:+`);
+        const netN = find(`${b.id}:-`);
+        const key = `${netP}|${netN}`;
+        if (!bankMap.has(key)) {
+          bankMap.set(key, { netP, netN, cells: [] });
+        }
+        bankMap.get(key).cells.push(b);
+      }
+
+      const banks = Array.from(bankMap.values());
+
+      // Validate each parallel bank
+      for (const bank of banks) {
+        if (bank.cells.length > 1) {
+          const voltages = bank.cells.map(c => getCellOpenCircuitVoltage(c));
+          const maxV = Math.max(...voltages);
+          const minV = Math.min(...voltages);
+          if (maxV - minV > 0.2) {
+            warnings.push({
+              level: 'danger',
+              text: `PARALLEL VOLTAGE MISMATCH (${(maxV - minV).toFixed(2)}V delta): High cross-current surge between parallel cells!`
+            });
+          }
+          const chems = new Set(bank.cells.map(c => c.chemistry));
+          if (chems.size > 1) {
+            warnings.push({
+              level: 'warn',
+              text: `Mixed chemistries in parallel bank (${Array.from(chems).join(', ')}). Uneven load sharing.`
+            });
+          }
+        }
+      }
+
+      // Build directed graph of banks (netN -> netP) to find longest Series chain
+      const adj = new Map();
+      const inDegree = new Map();
+      for (const bank of banks) {
+        if (!adj.has(bank.netN)) adj.set(bank.netN, []);
+        adj.get(bank.netN).push(bank);
+        inDegree.set(bank.netP, (inDegree.get(bank.netP) || 0) + 1);
+        if (!inDegree.has(bank.netN)) inDegree.set(bank.netN, 0);
+      }
+
+      // Check for closed loop short circuit across multiple series banks
+      // DFS longest simple path of banks
+      let bestChain = [];
+      const visitedNets = new Set();
+
+      function dfs(currentNet, currentChain) {
+        if (currentChain.length > bestChain.length) {
+          bestChain = [...currentChain];
+        }
+        const outgoing = adj.get(currentNet) || [];
+        for (const bank of outgoing) {
+          if (visitedNets.has(bank.netP)) {
+            hasShortCircuit = true;
+            warnings.push({
+              level: 'danger',
+              text: `SERIES LOOP SHORT CIRCUIT: Pack positive output is shorted back to pack negative terminal!`
+            });
+            continue;
+          }
+          visitedNets.add(bank.netP);
+          currentChain.push(bank);
+          dfs(bank.netP, currentChain);
+          currentChain.pop();
+          visitedNets.delete(bank.netP);
+        }
+      }
+
+      for (const bank of banks) {
+        visitedNets.clear();
+        visitedNets.add(bank.netN);
+        visitedNets.add(bank.netP);
+        dfs(bank.netP, [bank]);
+      }
+
+      const activeCellsInChain = bestChain.reduce((acc, b) => acc + b.cells.length, 0);
+      const disconnectedCount = batteries.length - activeCellsInChain;
+      if (disconnectedCount > 0 && batteries.length > 1) {
+        warnings.push({
+          level: 'warn',
+          text: `${disconnectedCount} cell(s) are open/disconnected from the main pack circuit.`
+        });
+      }
+
+      // Calculate electrical properties of the active Series-Parallel chain
+      const seriesCount = bestChain.length;
+      const parallelCount = seriesCount > 0 ? Math.min(...bestChain.map(b => b.cells.length)) : 0;
+
+      let vNominal = 0;
+      let vMax = 0;
+      let vOpenCircuit = 0;
+      let rInternal = 0;
+      const bankCapacities = [];
+
+      for (const bank of bestChain) {
+        const avgNom = bank.cells.reduce((s, c) => s + c.voltage, 0) / bank.cells.length;
+        const avgMax = bank.cells.reduce((s, c) => s + getCellMaxVoltage(c), 0) / bank.cells.length;
+        const avgOc  = bank.cells.reduce((s, c) => s + getCellOpenCircuitVoltage(c), 0) / bank.cells.length;
+        const bankCap = bank.cells.reduce((s, c) => s + c.capacity, 0);
+        const invR = bank.cells.reduce((s, c) => s + (1 / Math.max(0.0005, c.rint)), 0);
+        const bankR = 1 / invR;
+
+        vNominal += avgNom;
+        vMax += avgMax;
+        vOpenCircuit += avgOc;
+        rInternal += bankR;
+        bankCapacities.push(bankCap);
+      }
+
+      const capacityMah = bankCapacities.length > 0 ? Math.min(...bankCapacities) : 0;
+      if (bankCapacities.length > 1 && Math.max(...bankCapacities) - Math.min(...bankCapacities) > 250) {
+        warnings.push({
+          level: 'warn',
+          text: `Series capacity imbalance: Pack capacity limited to weakest group (${capacityMah} mAh). Risk of over-discharging weak cell.`
+        });
+      }
+
+      if (bestChain.some(b => b.cells.some(c => c.chemistry === 'Li-ion' || c.chemistry === 'LiFePO4'))) {
+        warnings.push({
+          level: 'info',
+          text: `Lithium Chemistry Active: Use a BMS (Battery Management System) for cell balancing & over-current protection.`
+        });
+      }
+
+      const energyWh = vNominal * (capacityMah / 1000);
+      const topology = `${seriesCount}S${parallelCount}P`;
+
+      state.packAnalysis = {
+        topology,
+        cellCount: batteries.length,
+        seriesCount,
+        parallelCount,
+        vNominal,
+        vMax,
+        vOpenCircuit,
+        capacityMah,
+        rInternal,
+        energyWh,
+        warnings,
+        hasShortCircuit,
+        disconnectedCount
+      };
+      return state.packAnalysis;
+    }
+
+    // =========================================================================
+    // 4. THREE.JS 3D BATTERY WORKSPACE ENGINE (OPTIMIZED FOR LOW-END GPUs)
+    // =========================================================================
+    let scene, camera, renderer, controls, raycaster, pointer;
+    const batteryMeshes = new Map(); // batId -> THREE.Group
+    const terminalTargets = []; // clickable terminal meshes
+    const wireMeshes = [];
+    let dragPlane = new THREE.Plane(new THREE.Vector3(0, 1, 0), 0);
+    let draggingBatteryId = null;
+    let dragOffset = new THREE.Vector3();
+    let needsRender = true;
+
+    function createTextSprite(text, bgColor, textColor = '#ffffff') {
+      const canvas = document.createElement('canvas');
+      canvas.width = 96;
+      canvas.height = 96;
+      const ctx = canvas.getContext('2d');
+      ctx.fillStyle = bgColor;
+      ctx.beginPath();
+      ctx.arc(48, 48, 38, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.lineWidth = 5;
+      ctx.strokeStyle = '#ffffff';
+      ctx.stroke();
+
+      ctx.fillStyle = textColor;
+      ctx.font = 'bold 52px Inter, sans-serif';
+      ctx.textAlign = 'center';
+      ctx.textBaseline = 'middle';
+      ctx.fillText(text, 48, 51);
+
+      const tex = new THREE.CanvasTexture(canvas);
+      const mat = new THREE.SpriteMaterial({ map: tex, depthTest: false });
+      const sprite = new THREE.Sprite(mat);
+      sprite.scale.set(0.45, 0.45, 1);
+      return sprite;
+    }
+
+    function initThreeWorkspace() {
+      const container = document.getElementById('three-container');
+      scene = new THREE.Scene();
+      scene.background = new THREE.Color(0x070b14);
+
+      const w = container.clientWidth || 640;
+      const h = container.clientHeight || 420;
+      camera = new THREE.PerspectiveCamera(42, w / h, 0.1, 100);
+      camera.position.set(0, 8.5, 9.5);
+
+      renderer = new THREE.WebGLRenderer({
+        antialias: !state.lowPerf,
+        powerPreference: 'low-power',
+        preserveDrawingBuffer: true
+      });
+      renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, state.lowPerf ? 1.0 : 1.5));
+      renderer.setSize(w, h);
+      container.appendChild(renderer.domElement);
+
+      // Lightweight Three-point Lighting (No expensive shadow maps)
+      const ambient = new THREE.AmbientLight(0xffffff, 0.75);
+      scene.add(ambient);
+      const dirLight = new THREE.DirectionalLight(0xe0f2fe, 1.1);
+      dirLight.position.set(6, 12, 8);
+      scene.add(dirLight);
+      const fillLight = new THREE.DirectionalLight(0x94a3b8, 0.45);
+      fillLight.position.set(-6, 5, -6);
+      scene.add(fillLight);
+
+      // Engineering Workbench Surface & Grid
+      const gridHelper = new THREE.GridHelper(18, 18, 0x1e293b, 0x131c2e);
+      scene.add(gridHelper);
+
+      const matBench = new THREE.MeshLambertMaterial({ color: 0x0b1220 });
+      const benchPlane = new THREE.Mesh(new THREE.PlaneGeometry(18, 18), matBench);
+      benchPlane.rotation.x = -Math.PI / 2;
+      benchPlane.position.y = -0.01;
+      scene.add(benchPlane);
+
+      // OrbitControls
+      controls = new OrbitControls(camera, renderer.domElement);
+      controls.enableDamping = true;
+      controls.dampingFactor = 0.08;
+      controls.maxPolarAngle = Math.PI / 2 - 0.05;
+      controls.minDistance = 3;
+      controls.maxDistance = 24;
+      controls.addEventListener('change', () => { needsRender = true; });
+
+      raycaster = new THREE.Raycaster();
+      pointer = new THREE.Vector2();
+
+      // Pointer Events for Selection, Dragging & Terminal Wiring
+      const dom = renderer.domElement;
+      dom.addEventListener('pointerdown', onThreePointerDown);
+      dom.addEventListener('pointermove', onThreePointerMove);
+      dom.addEventListener('pointerup', onThreePointerUp);
+      window.addEventListener('resize', onThreeResize);
+
+      // Render Loop (Render-on-demand / throttled)
+      function animate() {
+        requestAnimationFrame(animate);
+        if (controls.update() || needsRender) {
+          renderer.render(scene, camera);
+          needsRender = false;
+        }
+      }
+      animate();
+    }
+
+    function onThreeResize() {
+      const container = document.getElementById('three-container');
+      if (!container || !renderer) return;
+      const w = container.clientWidth;
+      const h = container.clientHeight;
+      if (w === 0 || h === 0) return;
+      camera.aspect = w / h;
+      camera.updateProjectionMatrix();
+      renderer.setSize(w, h);
+      needsRender = true;
+    }
+
+    function disposeObject3D(obj) {
+      obj.traverse(child => {
+        if (child.geometry) child.geometry.dispose();
+        if (child.material) {
+          if (Array.isArray(child.material)) child.material.forEach(m => m.dispose());
+          else {
+            if (child.material.map) child.material.map.dispose();
+            child.material.dispose();
+          }
+        }
+      });
+    }
+
+    function buildBatteryMesh(battery) {
+      const preset = BATTERY_PRESETS[battery.format] || BATTERY_PRESETS['18650'];
+      const chemSpec = CHEMISTRY_SPECS[battery.chemistry] || CHEMISTRY_SPECS['Li-ion'];
+      const segs = state.lowPerf ? 14 : 22;
+
+      const group = new THREE.Group();
+      group.userData = { batteryId: battery.id };
+
+      // Lay cylinder horizontally along Z-axis so + and - terminals are easily accessible from top
+      const bodyGeo = new THREE.CylinderGeometry(preset.radius, preset.radius, preset.height, segs);
+      bodyGeo.rotateX(Math.PI / 2);
+      const bodyMat = new THREE.MeshStandardMaterial({
+        color: chemSpec.color,
+        roughness: 0.38,
+        metalness: 0.15
+      });
+      const bodyMesh = new THREE.Mesh(bodyGeo, bodyMat);
+      bodyMesh.position.y = preset.radius;
+      bodyMesh.userData = { type: 'batteryBody', batteryId: battery.id };
+      group.add(bodyMesh);
+
+      // Selection Highlight Ring
+      if (state.selectedBatteryId === battery.id) {
+        const ringGeo = new THREE.RingGeometry(preset.radius * 1.15, preset.radius * 1.35, 24);
+        ringGeo.rotateX(-Math.PI / 2);
+        const ringMat = new THREE.MeshBasicMaterial({ color: 0x38bdf8, side: THREE.DoubleSide });
+        const ring = new THREE.Mesh(ringGeo, ringMat);
+        ring.position.y = 0.02;
+        group.add(ring);
+      }
+
+      // Metallic Positive (+) Cap at +Z
+      const halfH = preset.height / 2;
+      const capGeo = new THREE.CylinderGeometry(preset.radius * 0.42, preset.radius * 0.42, 0.16, segs);
+      capGeo.rotateX(Math.PI / 2);
+      const capMat = new THREE.MeshStandardMaterial({ color: 0xe2e8f0, metalness: 0.7, roughness: 0.25 });
+      const posCap = new THREE.Mesh(capGeo, capMat);
+      posCap.position.set(0, preset.radius, halfH + 0.08);
+      posCap.userData = { type: 'terminal', batteryId: battery.id, polarity: '+' };
+      group.add(posCap);
+
+      // Red Insulator Ring around (+)
+      const posRingGeo = new THREE.CylinderGeometry(preset.radius * 0.72, preset.radius * 0.72, 0.04, segs);
+      posRingGeo.rotateX(Math.PI / 2);
+      const posRingMat = new THREE.MeshBasicMaterial({ color: 0xef4444 });
+      const posRing = new THREE.Mesh(posRingGeo, posRingMat);
+      posRing.position.set(0, preset.radius, halfH + 0.01);
+      posRing.userData = { type: 'terminal', batteryId: battery.id, polarity: '+' };
+      group.add(posRing);
+
+      // Metallic Negative (-) Plate at -Z
+      const negCapGeo = new THREE.CylinderGeometry(preset.radius * 0.78, preset.radius * 0.78, 0.08, segs);
+      negCapGeo.rotateX(Math.PI / 2);
+      const negCapMat = new THREE.MeshStandardMaterial({ color: 0x94a3b8, metalness: 0.75, roughness: 0.3 });
+      const negCap = new THREE.Mesh(negCapGeo, negCapMat);
+      negCap.position.set(0, preset.radius, -halfH - 0.03);
+      negCap.userData = { type: 'terminal', batteryId: battery.id, polarity: '-' };
+      group.add(negCap);
+
+      // Floating (+) and (-) Sprites for unmistakable polarity
+      const spritePlus = createTextSprite('+', '#dc2626');
+      spritePlus.position.set(0, preset.radius * 2 + 0.32, halfH * 0.75);
+      group.add(spritePlus);
+
+      const spriteMinus = createTextSprite('−', '#1e293b');
+      spriteMinus.position.set(0, preset.radius * 2 + 0.32, -halfH * 0.75);
+      group.add(spriteMinus);
+
+      group.position.set(battery.x, 0, battery.z);
+      group.rotation.y = (battery.rotationDeg * Math.PI) / 180;
+
+      return { group, posCap, negCap, bodyMesh };
+    }
+
+    function getTerminalWorldPosition(batteryId, polarity) {
+      const group = batteryMeshes.get(batteryId);
+      const bat = state.batteries.find(b => b.id === batteryId);
+      if (!group || !bat) return new THREE.Vector3();
+      const preset = BATTERY_PRESETS[bat.format] || BATTERY_PRESETS['18650'];
+      const localZ = polarity === '+' ? (preset.height / 2 + 0.1) : (-preset.height / 2 - 0.05);
+      const localPos = new THREE.Vector3(0, preset.radius, localZ);
+      group.updateMatrixWorld(true);
+      return localPos.applyMatrix4(group.matrixWorld);
+    }
+
+    function rebuild3DScene() {
+      // Clear old battery meshes
+      for (const [, grp] of batteryMeshes) {
+        scene.remove(grp);
+        disposeObject3D(grp);
+      }
+      batteryMeshes.clear();
+      terminalTargets.length = 0;
+
+      for (const bat of state.batteries) {
+        const built = buildBatteryMesh(bat);
+        scene.add(built.group);
+        batteryMeshes.set(bat.id, built.group);
+        terminalTargets.push(built.posCap, built.negCap, built.bodyMesh);
+      }
+
+      rebuild3DWires();
+      needsRender = true;
+    }
+
+    function rebuild3DWires() {
+      for (const wm of wireMeshes) {
+        scene.remove(wm);
+        disposeObject3D(wm);
+      }
+      wireMeshes.length = 0;
+
+      const tubularSegs = state.lowPerf ? 12 : 20;
+      const radialSegs = state.lowPerf ? 5 : 8;
+
+      for (const w of state.wires) {
+        const p1 = getTerminalWorldPosition(w.fromBat, w.fromPol);
+        const p2 = getTerminalWorldPosition(w.toBat, w.toPol);
+        const mid = new THREE.Vector3().addVectors(p1, p2).multiplyScalar(0.5);
+        mid.y += 0.65 + p1.distanceTo(p2) * 0.12;
+
+        const curve = new THREE.CatmullRomCurve3([p1, mid, p2]);
+        const geo = new THREE.TubeGeometry(curve, tubularSegs, 0.045, radialSegs, false);
+
+        // Color coding: Red for + to +, Black/Slate for - to -, Amber for Series (+ to -)
+        let wireColor = 0xf59e0b;
+        if (w.fromPol === '+' && w.toPol === '+') wireColor = 0xef4444;
+        else if (w.fromPol === '-' && w.toPol === '-') wireColor = 0x475569;
+
+        const mat = new THREE.MeshStandardMaterial({ color: wireColor, roughness: 0.45 });
+        const mesh = new THREE.Mesh(geo, mat);
+        scene.add(mesh);
+        wireMeshes.push(mesh);
+      }
+      needsRender = true;
+    }
+
+    function updatePointerNDC(event) {
+      const rect = renderer.domElement.getBoundingClientRect();
+      pointer.x = ((event.clientX - rect.left) / rect.width) * 2 - 1;
+      pointer.y = -((event.clientY - rect.top) / rect.height) * 2 + 1;
+    }
+
+    function onThreePointerDown(event) {
+      updatePointerNDC(event);
+      raycaster.setFromCamera(pointer, camera);
+      const hits = raycaster.intersectObjects(terminalTargets, false);
+
+      if (hits.length === 0) return;
+      const hitObj = hits[0].object;
+      const { type, batteryId, polarity } = hitObj.userData;
+
+      if (state.interactionMode === 'wire') {
+        const pol = polarity || '+';
+        if (!state.pendingTerminal) {
+          state.pendingTerminal = { batteryId, polarity: pol };
+          showToast(`Terminal ${pol} on Cell #${batteryId} selected. Click target terminal.`);
+        } else {
+          const from = state.pendingTerminal;
+          if (from.batteryId === batteryId && from.polarity === pol) {
+            state.pendingTerminal = null;
+            return;
+          }
+          // Avoid duplicate wire
+          const exists = state.wires.some(w =>
+            (w.fromBat === from.batteryId && w.fromPol === from.polarity && w.toBat === batteryId && w.toPol === pol) ||
+            (w.toBat === from.batteryId && w.toPol === from.polarity && w.fromBat === batteryId && w.fromPol === pol)
+          );
+          if (!exists) {
+            state.wires.push({
+              id: nextWireId++,
+              fromBat: from.batteryId,
+              fromPol: from.polarity,
+              toBat: batteryId,
+              toPol: pol
+            });
+            showToast(`Connected Cell #${from.batteryId}(${from.polarity}) → Cell #${batteryId}(${pol})`);
+          }
+          state.pendingTerminal = null;
+          refreshAllViews();
+        }
+        return;
+      }
+
+      // Move / Select mode
+      state.selectedBatteryId = batteryId;
+      draggingBatteryId = batteryId;
+      controls.enabled = false;
+
+      const planeHit = new THREE.Vector3();
+      raycaster.ray.intersectPlane(dragPlane, planeHit);
+      const bat = state.batteries.find(b => b.id === batteryId);
+      if (bat) {
+        dragOffset.set(bat.x - planeHit.x, 0, bat.z - planeHit.z);
+      }
+      refreshAllViews();
+    }
+
+    function onThreePointerMove(event) {
+      if (!draggingBatteryId) return;
+      updatePointerNDC(event);
+      raycaster.setFromCamera(pointer, camera);
+      const planeHit = new THREE.Vector3();
+      if (raycaster.ray.intersectPlane(dragPlane, planeHit)) {
+        const bat = state.batteries.find(b => b.id === draggingBatteryId);
+        if (bat) {
+          // Snap softly to 0.25 grid increments
+          bat.x = Math.max(-7.5, Math.min(7.5, Math.round((planeHit.x + dragOffset.x) * 4) / 4));
+          bat.z = Math.max(-7.5, Math.min(7.5, Math.round((planeHit.z + dragOffset.z) * 4) / 4));
+          const grp = batteryMeshes.get(bat.id);
+          if (grp) grp.position.set(bat.x, 0, bat.z);
+          rebuild3DWires();
+        }
+      }
+    }
+
+    function onThreePointerUp() {
+      if (draggingBatteryId) {
+        draggingBatteryId = null;
+        controls.enabled = true;
+      }
+    }
+
+    // =========================================================================
+    // 5. ELECTRICAL ENGINEERING CALCULATOR ENGINE
+    // =========================================================================
+    function updateElectricalCalculator() {
+      const pack = analyzeBatteryPack();
+      const loadMode = state.calc.loadMode;
+      const loadVal = Math.max(0.01, parseFloat(state.calc.loadValue) || 1);
+
+      const Voc = pack.vOpenCircuit;
+      const Vnom = pack.vNominal;
+      const Rint = pack.rInternal;
+      const Ah = pack.capacityMah / 1000;
+
+      let I = 0;
+      let Vterm = Voc;
+      let Pload = 0;
+      let RloadEff = loadVal;
+
+      if (pack.hasShortCircuit) {
+        // Short circuit simulation
+        I = Voc / Math.max(0.002, Rint);
+        Vterm = 0;
+        Pload = 0;
+        RloadEff = 0;
+      } else if (Voc > 0 && Ah > 0) {
+        if (loadMode === 'resistance') {
+          RloadEff = loadVal;
+          I = Voc / (RloadEff + Rint);
+          Vterm = Voc - I * Rint;
+          Pload = Vterm * I;
+        } else if (loadMode === 'current') {
+          I = loadVal;
+          Vterm = Math.max(0, Voc - I * Rint);
+          Pload = Vterm * I;
+          RloadEff = I > 0 ? Vterm / I : 0;
+        } else if (loadMode === 'power') {
+          // Solve Vterm * I = P => (Voc - I*Rint)*I = P => Rint*I^2 - Voc*I + P = 0
+          const disc = Voc * Voc - 4 * Rint * loadVal;
+          if (disc >= 0 && Rint > 0) {
+            I = (Voc - Math.sqrt(disc)) / (2 * Rint);
+          } else {
+            I = Voc / (2 * Math.max(0.01, Rint)); // Max power transfer limit
+          }
+          Vterm = Math.max(0, Voc - I * Rint);
+          Pload = Vterm * I;
+          RloadEff = I > 0 ? Vterm / I : 0;
+        }
+      }
+
+      const Ploss = I * I * Rint;
+      const Ptotal = Pload + Ploss;
+      const efficiency = Ptotal > 0 ? (Pload / Ptotal) * 100 : 100;
+      const runtimeHours = I > 0 ? Ah / I : 0;
+      const cRate = Ah > 0 ? I / Ah : 0;
+
+      // Update KPI Cards
+      document.getElementById('kpi-voc').textContent = `${Voc.toFixed(2)} V`;
+      document.getElementById('kpi-vnom-sub').textContent = `Nom: ${Vnom.toFixed(2)} V | Max: ${pack.vMax.toFixed(2)} V`;
+      document.getElementById('kpi-vterm').textContent = `${Vterm.toFixed(2)} V`;
+      document.getElementById('kpi-vsag').textContent = `Sag: -${(Voc - Vterm).toFixed(3)} V`;
+      document.getElementById('kpi-cap').textContent = `${pack.capacityMah.toFixed(0)} mAh`;
+      document.getElementById('kpi-ah').textContent = `${Ah.toFixed(2)} Ah (${pack.topology})`;
+      document.getElementById('kpi-current').textContent = `${I.toFixed(2)} A`;
+      document.getElementById('kpi-crate').textContent = `${cRate.toFixed(2)} C-rate`;
+      document.getElementById('kpi-power').textContent = `${Pload.toFixed(2)} W`;
+      document.getElementById('kpi-ploss').textContent = `Internal Heat: ${Ploss.toFixed(2)} W`;
+
+      const hrs = Math.floor(runtimeHours);
+      const mins = Math.round((runtimeHours - hrs) * 60);
+      document.getElementById('kpi-runtime').textContent = I > 0 ? `${hrs}h ${mins}m` : '∞';
+      document.getElementById('kpi-energy').textContent = `${pack.energyWh.toFixed(2)} Wh`;
+
+      // Step-by-Step Formulas
+      const stepsEl = document.getElementById('formula-steps-list');
+      stepsEl.innerHTML = `
+        <div class="p-2.5 rounded-lg bg-slate-950 border border-slate-800">
+          <div class="text-slate-400 text-[11px]">1. Pack Open-Circuit Voltage (${pack.seriesCount}S Series Sum)</div>
+          <div class="text-emerald-400 mt-0.5">V<sub>oc</sub> = Σ V<sub>bank</sub> = ${Voc.toFixed(2)} V (Nominal: ${Vnom.toFixed(2)} V)</div>
+        </div>
+        <div class="p-2.5 rounded-lg bg-slate-950 border border-slate-800">
+          <div class="text-slate-400 text-[11px]">2. Pack Capacity (${pack.parallelCount}P Parallel Sum, Weakest Series Link)</div>
+          <div class="text-amber-400 mt-0.5">C<sub>pack</sub> = min(Σ C<sub>parallel</sub>) = ${pack.capacityMah.toFixed(0)} mAh = ${Ah.toFixed(2)} Ah</div>
+        </div>
+        <div class="p-2.5 rounded-lg bg-slate-950 border border-slate-800">
+          <div class="text-slate-400 text-[11px]">3. Equivalent Internal Resistance (R<sub>int</sub>)</div>
+          <div class="text-cyan-400 mt-0.5">R<sub>int</sub> = Σ (1 / Σ(1/R<sub>cell</sub>)) = ${Rint.toFixed(4)} Ω</div>
+        </div>
+        <div class="p-2.5 rounded-lg bg-slate-950 border border-slate-800">
+          <div class="text-slate-400 text-[11px]">4. Ohm's Law Discharge Current &amp; Terminal Voltage</div>
+          <div class="text-blue-400 mt-0.5">I = V<sub>oc</sub> / (R<sub>load</sub> + R<sub>int</sub>) = ${Voc.toFixed(2)} / (${RloadEff.toFixed(2)} + ${Rint.toFixed(3)}) = ${I.toFixed(3)} A</div>
+          <div class="text-slate-300 mt-0.5">V<sub>term</sub> = V<sub>oc</sub> - (I × R<sub>int</sub>) = ${Vterm.toFixed(3)} V</div>
+        </div>
+        <div class="p-2.5 rounded-lg bg-slate-950 border border-slate-800">
+          <div class="text-slate-400 text-[11px]">5. Delivered Power, Stored Energy &amp; Operating Time</div>
+          <div class="text-purple-400 mt-0.5">P = V<sub>term</sub> × I = ${Vterm.toFixed(2)}V × ${I.toFixed(2)}A = ${Pload.toFixed(2)} W</div>
+          <div class="text-slate-300 mt-0.5">E = V<sub>nom</sub> × Ah = ${pack.energyWh.toFixed(2)} Wh | t = Ah / I = ${runtimeHours.toFixed(2)} hrs</div>
+        </div>
+      `;
+
+      // Theoretical vs Actual Comparison Table
+      const idealI = RloadEff > 0 ? Voc / RloadEff : 0;
+      const idealP = Voc * idealI;
+      const idealTime = idealI > 0 ? Ah / idealI : 0;
+      document.getElementById('comparison-table-body').innerHTML = `
+        <tr>
+          <td class="py-2 text-slate-300">Terminal Voltage</td>
+          <td class="py-2 text-end text-slate-400">${Voc.toFixed(2)} V</td>
+          <td class="py-2 text-end text-cyan-400 font-semibold">${Vterm.toFixed(2)} V</td>
+        </tr>
+        <tr>
+          <td class="py-2 text-slate-300">Discharge Current</td>
+          <td class="py-2 text-end text-slate-400">${idealI.toFixed(2)} A</td>
+          <td class="py-2 text-end text-cyan-400 font-semibold">${I.toFixed(2)} A</td>
+        </tr>
+        <tr>
+          <td class="py-2 text-slate-300">Load Power</td>
+          <td class="py-2 text-end text-slate-400">${idealP.toFixed(2)} W</td>
+          <td class="py-2 text-end text-cyan-400 font-semibold">${Pload.toFixed(2)} W</td>
+        </tr>
+        <tr>
+          <td class="py-2 text-slate-300">Runtime</td>
+          <td class="py-2 text-end text-slate-400">${idealTime.toFixed(2)} h</td>
+          <td class="py-2 text-end text-cyan-400 font-semibold">${runtimeHours.toFixed(2)} h</td>
+        </tr>
+      `;
+
+      document.getElementById('calc-efficiency-val').textContent = `${efficiency.toFixed(1)}%`;
+      document.getElementById('calc-efficiency-bar').style.width = `${Math.max(0, Math.min(100, efficiency))}%`;
+
+      // Warnings in Calculator
+      const calcWarnings = [...pack.warnings];
+      if (cRate > 2.0 && !pack.hasShortCircuit) {
+        calcWarnings.unshift({
+          level: 'danger',
+          text: `EXCESSIVE C-RATE (${cRate.toFixed(1)}C / ${I.toFixed(1)}A): Exceeds standard 2C continuous discharge rating. Risk of overheating!`
+        });
+      }
+      const warnBox = document.getElementById('calc-warnings-box');
+      warnBox.innerHTML = calcWarnings.map(w => {
+        const cls = w.level === 'danger'
+          ? 'bg-rose-950/70 border-rose-800 text-rose-300'
+          : w.level === 'warn'
+            ? 'bg-amber-950/70 border-amber-800 text-amber-300'
+            : 'bg-slate-950 border-slate-800 text-slate-300';
+        return `<div class="p-2.5 rounded-lg border ${cls}">${w.text}</div>`;
+      }).join('');
+    }
+
+    // =========================================================================
+    // 6. VIRTUAL ELECTRONICS LABORATORY & MNA DC CIRCUIT SOLVER
+    // =========================================================================
+    const labState = {
+      tool: 'select', // 'select' | 'wire' | 'battery' | 'resistor' | 'led' | 'switch'
+      dmmMode: 'V', // 'V' | 'A' | 'R' | 'CONT'
+      placingProbe: null, // 'red' | 'black' | null
+      redProbe: { col: 2, row: 0 }, // Top + rail
+      blackProbe: { col: 2, row: 1 }, // Top - rail
+      selectedId: null,
+      pendingPin: null,
+      components: [],
+      wires: [],
+      solution: { nodeVoltages: new Map(), compStats: new Map(), totalCurrentMa: 0, supplyV: 0, alerts: [] }
+    };
+
+    let nextLabId = 1;
+    // Breadboard Geometry: 30 columns (0..29)
+    // Rows:
+    // 0: Top (+) rail
+    // 1: Top (-) rail
+    // 2..6: Top terminal strip (A..E) -> electrically connected per column!
+    // 7..11: Bottom terminal strip (F..J) -> electrically connected per column!
+    // 12: Bottom (+) rail
+    // 13: Bottom (-) rail
+    const BB_COLS = 26;
+    const BB_ROWS = 14;
+
+    function getHoleElectricalNet(col, row) {
+      if (row === 0) return 'RAIL_TOP_POS';
+      if (row === 1) return 'RAIL_TOP_NEG';
+      if (row >= 2 && row <= 6) return `STRIP_TOP_${col}`;
+      if (row >= 7 && row <= 11) return `STRIP_BOT_${col}`;
+      if (row === 12) return 'RAIL_BOT_POS';
+      if (row === 13) return 'RAIL_BOT_NEG';
+      return `HOLE_${col}_${row}`;
+    }
+
+    function solveBreadboardCircuit() {
+      // Union-Find for ideal conductors: breadboard strips, wires, and closed switches
+      const parent = new Map();
+      function find(x) {
+        if (!parent.has(x)) parent.set(x, x);
+        if (parent.get(x) !== x) parent.set(x, find(parent.get(x)));
+        return parent.get(x);
+      }
+      function union(a, b) {
+        const ra = find(a), rb = find(b);
+        if (ra !== rb) parent.set(ra, rb);
+      }
+
+      // Initialize all holes
+      for (let c = 0; c < BB_COLS; c++) {
+        for (let r = 0; r < BB_ROWS; r++) {
+          find(getHoleElectricalNet(c, r));
+        }
+      }
+
+      // Merge wires
+      for (const w of labState.wires) {
+        union(getHoleElectricalNet(w.c1, w.r1), getHoleElectricalNet(w.c2, w.r2));
+      }
+
+      // Merge closed switches
+      for (const comp of labState.components) {
+        if (comp.type === 'switch' && comp.closed) {
+          union(getHoleElectricalNet(comp.c1, comp.r1), getHoleElectricalNet(comp.c2, comp.r2));
+        }
+      }
+
+      const batteries = labState.components.filter(c => c.type === 'battery');
+      const resistors = labState.components.filter(c => c.type === 'resistor');
+      const leds = labState.components.filter(c => c.type === 'led');
+      const alerts = [];
+
+      if (batteries.length === 0) {
+        labState.solution = {
+          nodeVoltages: new Map(),
+          compStats: new Map(),
+          totalCurrentMa: 0,
+          supplyV: 0,
+          alerts: [{ level: 'info', text: 'Place a DC Source (+ DC Source) and connect it to the breadboard rails.' }],
+          findNet: find
+        };
+        return;
+      }
+
+      // Collect unique electrical nodes
+      const nodeSet = new Set();
+      for (let c = 0; c < BB_COLS; c++) {
+        for (let r = 0; r < BB_ROWS; r++) {
+          nodeSet.add(find(getHoleElectricalNet(c, r)));
+        }
+      }
+      const nodes = Array.from(nodeSet);
+      const nodeIndex = new Map(nodes.map((n, i) => [n, i]));
+
+      // Choose reference ground = negative terminal of first battery
+      const groundNet = find(getHoleElectricalNet(batteries[0].c2, batteries[0].r2));
+      const gndIdx = nodeIndex.get(groundNet);
+
+      // Check direct short circuit across any battery
+      let shortDetected = false;
+      for (const bat of batteries) {
+        const pNet = find(getHoleElectricalNet(bat.c1, bat.r1));
+        const nNet = find(getHoleElectricalNet(bat.c2, bat.r2));
+        if (pNet === nNet) {
+          shortDetected = true;
+          alerts.push({ level: 'danger', text: 'SHORT CIRCUIT! Battery (+) and (-) terminals are directly connected together!' });
+        }
+      }
+
+      // Iterative MNA Solver (3 iterations to resolve LED forward voltage drop & reverse bias)
+      const ledConducting = new Map(leds.map(l => [l.id, true]));
+      let V = new Float64Array(nodes.length);
+
+      for (let iter = 0; iter < 4; iter++) {
+        const N = nodes.length;
+        const M = batteries.length;
+        const dim = N + M;
+        const A = Array.from({ length: dim }, () => new Float64Array(dim));
+        const z = new Float64Array(dim);
+
+        // Tiny leakage conductance to ground for floating islands
+        for (let i = 0; i < N; i++) {
+          A[i][i] += 1e-9;
+        }
+
+        // Stamp Resistors
+        for (const res of resistors) {
+          const n1 = nodeIndex.get(find(getHoleElectricalNet(res.c1, res.r1)));
+          const n2 = nodeIndex.get(find(getHoleElectricalNet(res.c2, res.r2)));
+          const g = 1 / Math.max(0.1, res.ohms);
+          A[n1][n1] += g;
+          A[n2][n2] += g;
+          A[n1][n2] -= g;
+          A[n2][n1] -= g;
+        }
+
+        // Stamp LEDs (Piecewise linear diode model: Vf + R_dynamic = 25 Ohm when forward biased)
+        for (const led of leds) {
+          if (!ledConducting.get(led.id)) continue;
+          const nAnode = nodeIndex.get(find(getHoleElectricalNet(led.c1, led.r1)));
+          const nCathode = nodeIndex.get(find(getHoleElectricalNet(led.c2, led.r2)));
+          const gLed = 1 / 25; // 25 Ohm dynamic resistance
+          const vf = led.vf || 2.0;
+          A[nAnode][nAnode] += gLed;
+          A[nCathode][nCathode] += gLed;
+          A[nAnode][nCathode] -= gLed;
+          A[nCathode][nAnode] -= gLed;
+          // Norton current source for Vf drop
+          z[nAnode] -= gLed * vf;
+          z[nCathode] += gLed * vf;
+        }
+
+        // Stamp Voltage Sources with small internal resistance (0.05 Ohm) to prevent singular matrix on shorts
+        batteries.forEach((bat, k) => {
+          const nPos = nodeIndex.get(find(getHoleElectricalNet(bat.c1, bat.r1)));
+          const nNeg = nodeIndex.get(find(getHoleElectricalNet(bat.c2, bat.r2)));
+          const rowIdx = N + k;
+          A[nPos][rowIdx] += 1;
+          A[nNeg][rowIdx] -= 1;
+          A[rowIdx][nPos] += 1;
+          A[rowIdx][nNeg] -= 1;
+          A[rowIdx][rowIdx] -= Math.max(0.02, bat.rint || 0.05);
+          z[rowIdx] = bat.voltage;
+        });
+
+        // Enforce Ground Node V[gndIdx] = 0
+        for (let j = 0; j < dim; j++) {
+          A[gndIdx][j] = 0;
+          A[j][gndIdx] = 0;
+        }
+        A[gndIdx][gndIdx] = 1;
+        z[gndIdx] = 0;
+
+        // Gaussian Elimination with Partial Pivoting
+        for (let i = 0; i < dim; i++) {
+          let maxRow = i;
+          for (let r = i + 1; r < dim; r++) {
+            if (Math.abs(A[r][i]) > Math.abs(A[maxRow][i])) maxRow = r;
+          }
+          [A[i], A[maxRow]] = [A[maxRow], A[i]];
+          [z[i], z[maxRow]] = [z[maxRow], z[i]];
+
+          if (Math.abs(A[i][i]) < 1e-12) continue;
+          for (let r = i + 1; r < dim; r++) {
+            const factor = A[r][i] / A[i][i];
+            for (let c = i; c < dim; c++) A[r][c] -= factor * A[i][c];
+            z[r] -= factor * z[i];
+          }
+        }
+
+        const x = new Float64Array(dim);
+        for (let i = dim - 1; i >= 0; i--) {
+          let sum = z[i];
+          for (let c = i + 1; c < dim; c++) sum -= A[i][c] * x[c];
+          x[i] = Math.abs(A[i][i]) > 1e-12 ? sum / A[i][i] : 0;
+        }
+
+        V = x.slice(0, N);
+
+        // Update LED conduction state based on node voltages
+        let changed = false;
+        for (const led of leds) {
+          const nAnode = nodeIndex.get(find(getHoleElectricalNet(led.c1, led.r1)));
+          const nCathode = nodeIndex.get(find(getHoleElectricalNet(led.c2, led.r2)));
+          const vDrop = V[nAnode] - V[nCathode];
+          const shouldConduct = vDrop > (led.vf || 2.0);
+          if (shouldConduct !== ledConducting.get(led.id)) {
+            ledConducting.set(led.id, shouldConduct);
+            changed = true;
+          }
+        }
+        if (!changed) break;
+      }
+
+      const nodeVoltages = new Map();
+      nodes.forEach((n, i) => nodeVoltages.set(n, V[i]));
+
+      const compStats = new Map();
+      let totalCurrentMa = 0;
+
+      batteries.forEach((bat, k) => {
+        const vPos = V[nodeIndex.get(find(getHoleElectricalNet(bat.c1, bat.r1)))];
+        const vNeg = V[nodeIndex.get(find(getHoleElectricalNet(bat.c2, bat.r2)))];
+        const vDiff = vPos - vNeg;
+        const rInt = Math.max(0.02, bat.rint || 0.05);
+        const currentA = (bat.voltage - vDiff) / rInt;
+        totalCurrentMa += Math.abs(currentA) * 1000;
+        compStats.set(bat.id, { voltage: vDiff, currentMa: currentA * 1000 });
+      });
+
+      for (const res of resistors) {
+        const v1 = V[nodeIndex.get(find(getHoleElectricalNet(res.c1, res.r1)))];
+        const v2 = V[nodeIndex.get(find(getHoleElectricalNet(res.c2, res.r2)))];
+        const vDrop = v1 - v2;
+        const iMa = (vDrop / Math.max(0.1, res.ohms)) * 1000;
+        compStats.set(res.id, { voltage: vDrop, currentMa: iMa });
+      }
+
+      for (const led of leds) {
+        const v1 = V[nodeIndex.get(find(getHoleElectricalNet(led.c1, led.r1)))];
+        const v2 = V[nodeIndex.get(find(getHoleElectricalNet(led.c2, led.r2)))];
+        const vDrop = v1 - v2;
+        const vf = led.vf || 2.0;
+        const iMa = vDrop > vf ? ((vDrop - vf) / 25) * 1000 : 0;
+        const burned = iMa > 55;
+        if (burned) {
+          alerts.push({ level: 'danger', text: `LED OVERCURRENT (${iMa.toFixed(0)} mA > 50 mA max)! Add a series current-limiting resistor.` });
+        } else if (vDrop < -0.5) {
+          alerts.push({ level: 'warn', text: `LED is reverse-biased (${vDrop.toFixed(2)}V). Swap Anode (+) and Cathode (-).` });
+        }
+        compStats.set(led.id, { voltage: vDrop, currentMa: iMa, burned, lit: iMa > 1 && !burned });
+      }
+
+      if (totalCurrentMa > 2500 && !shortDetected) {
+        alerts.push({ level: 'danger', text: `HIGH CURRENT SURGE (${(totalCurrentMa / 1000).toFixed(2)} A)! Check for low-resistance path.` });
+      } else if (totalCurrentMa < 0.05 && alerts.length === 0) {
+        alerts.push({ level: 'info', text: 'Open circuit (0.0 mA). Complete a closed loop between (+) and (-) to power components.' });
+      } else if (alerts.length === 0) {
+        alerts.push({ level: 'ok', text: `Closed circuit operating normally at ${totalCurrentMa.toFixed(1)} mA.` });
+      }
+
+      labState.solution = {
+        nodeVoltages,
+        compStats,
+        totalCurrentMa,
+        supplyV: batteries[0].voltage,
+        alerts,
+        findNet: find
+      };
+    }
+
+    // =========================================================================
+    // 7. BREADBOARD 2D/2.5D CANVAS RENDERER & MULTIMETER
+    // =========================================================================
+    const RESISTOR_COLORS = ['#0f172a', '#78350f', '#dc2626', '#f97316', '#eab308', '#16a34a', '#2563eb', '#9333ea', '#64748b', '#f8fafc'];
+    const LED_COLORS = {
+      red: { hex: '#ef4444', vf: 2.0 },
+      green: { hex: '#22c55e', vf: 2.2 },
+      blue: { hex: '#3b82f6', vf: 3.1 },
+      yellow: { hex: '#eab308', vf: 2.1 },
+      white: { hex: '#f8fafc', vf: 3.2 }
+    };
+
+    function getResistorBands(ohms) {
+      const val = Math.max(1, Math.round(ohms));
+      const str = String(val);
+      const d1 = parseInt(str[0], 10) || 0;
+      const d2 = parseInt(str[1] || '0', 10) || 0;
+      const mult = Math.max(0, Math.min(9, str.length - 2));
+      return [RESISTOR_COLORS[d1], RESISTOR_COLORS[d2], RESISTOR_COLORS[mult], '#d97706'];
+    }
+
+    let bbLayout = { startX: 40, startY: 50, pitchX: 24, pitchY: 22 };
+
+    function holeToPixel(col, row) {
+      const extraGap = row >= 2 ? 12 : 0;
+      const ravineGap = row >= 7 ? 20 : 0;
+      const botRailGap = row >= 12 ? 12 : 0;
+      return {
+        x: bbLayout.startX + col * bbLayout.pitchX,
+        y: bbLayout.startY + row * bbLayout.pitchY + extraGap + ravineGap + botRailGap
+      };
+    }
+
+    function pixelToNearestHole(px, py) {
+      let best = { col: 0, row: 0, dist: Infinity };
+      for (let c = 0; c < BB_COLS; c++) {
+        for (let r = 0; r < BB_ROWS; r++) {
+          const p = holeToPixel(c, r);
+          const d = Math.hypot(px - p.x, py - p.y);
+          if (d < best.dist) best = { col: c, row: r, dist: d };
+        }
+      }
+      return best.dist < 22 ? best : null;
+    }
+
+    function renderBreadboardCanvas() {
+      const canvas = document.getElementById('lab-canvas');
+      if (!canvas) return;
+      const wrapper = document.getElementById('lab-canvas-wrapper');
+      const dpr = Math.min(window.devicePixelRatio || 1, state.lowPerf ? 1.0 : 1.5);
+      const w = wrapper.clientWidth || 700;
+      const h = wrapper.clientHeight || 420;
+      if (canvas.width !== Math.floor(w * dpr) || canvas.height !== Math.floor(h * dpr)) {
+        canvas.width = Math.floor(w * dpr);
+        canvas.height = Math.floor(h * dpr);
+      }
+
+      const ctx = canvas.getContext('2d');
+      ctx.save();
+      ctx.scale(dpr, dpr);
+
+      // Background
+      ctx.fillStyle = '#090e18';
+      ctx.fillRect(0, 0, w, h);
+
+      // Compute responsive breadboard pitch
+      const boardW = Math.min(w - 32, 820);
+      const boardH = Math.min(h - 48, 390);
+      bbLayout.pitchX = Math.max(14, Math.floor((boardW - 56) / (BB_COLS - 1)));
+      bbLayout.pitchY = Math.max(14, Math.floor((boardH - 80) / (BB_ROWS - 1)));
+      const actualW = (BB_COLS - 1) * bbLayout.pitchX + 56;
+      const actualH = (BB_ROWS - 1) * bbLayout.pitchY + 80;
+      bbLayout.startX = Math.floor((w - actualW) / 2) + 28;
+      bbLayout.startY = Math.floor((h - actualH) / 2) + 22;
+
+      // Breadboard Body (Cream/Slate Engineering PCB look)
+      ctx.fillStyle = '#e2e8f0';
+      ctx.beginPath();
+      ctx.roundRect(bbLayout.startX - 28, bbLayout.startY - 22, actualW, actualH, 14);
+      ctx.fill();
+      ctx.lineWidth = 2;
+      ctx.strokeStyle = '#64748b';
+      ctx.stroke();
+
+      // Power Rail Stripes (Red + and Blue -)
+      const pTopPos = holeToPixel(0, 0);
+      const pTopNeg = holeToPixel(0, 1);
+      const pBotPos = holeToPixel(0, 12);
+      const pBotNeg = holeToPixel(0, 13);
+      const railLen = (BB_COLS - 1) * bbLayout.pitchX;
+
+      ctx.lineWidth = 2;
+      ctx.strokeStyle = '#ef4444';
+      ctx.beginPath(); ctx.moveTo(pTopPos.x, pTopPos.y - 8); ctx.lineTo(pTopPos.x + railLen, pTopPos.y - 8); ctx.stroke();
+      ctx.beginPath(); ctx.moveTo(pBotPos.x, pBotPos.y - 8); ctx.lineTo(pBotPos.x + railLen, pBotPos.y - 8); ctx.stroke();
+
+      ctx.strokeStyle = '#2563eb';
+      ctx.beginPath(); ctx.moveTo(pTopNeg.x, pTopNeg.y + 8); ctx.lineTo(pTopNeg.x + railLen, pTopNeg.y + 8); ctx.stroke();
+      ctx.beginPath(); ctx.moveTo(pBotNeg.x, pBotNeg.y + 8); ctx.lineTo(pBotNeg.x + railLen, pBotNeg.y + 8); ctx.stroke();
+
+      // Central DIP Ravine
+      const stripE = holeToPixel(0, 6);
+      const stripF = holeToPixel(0, 7);
+      ctx.fillStyle = '#cbd5e1';
+      ctx.fillRect(bbLayout.startX - 24, (stripE.y + stripF.y) / 2 - 6, actualW - 8, 12);
+
+      // Draw Tie-Point Holes
+      for (let c = 0; c < BB_COLS; c++) {
+        for (let r = 0; r < BB_ROWS; r++) {
+          const p = holeToPixel(c, r);
+          ctx.fillStyle = '#334155';
+          ctx.fillRect(p.x - 3, p.y - 3, 6, 6);
+          ctx.fillStyle = '#0f172a';
+          ctx.fillRect(p.x - 1.5, p.y - 1.5, 3, 3);
+        }
+      }
+
+      // Draw Wires
+      for (const wire of labState.wires) {
+        const p1 = holeToPixel(wire.c1, wire.r1);
+        const p2 = holeToPixel(wire.c2, wire.r2);
+        ctx.save();
+        ctx.strokeStyle = wire.id === labState.selectedId ? '#38bdf8' : (wire.color || '#10b981');
+        ctx.lineWidth = wire.id === labState.selectedId ? 4.5 : 3.2;
+        ctx.lineCap = 'round';
+        ctx.beginPath();
+        ctx.moveTo(p1.x, p1.y);
+        const cpY = Math.min(p1.y, p2.y) - 18;
+        ctx.quadraticCurveTo((p1.x + p2.x) / 2, cpY, p2.x, p2.y);
+        ctx.stroke();
+        ctx.restore();
+      }
+
+      // Draw Components
+      for (const comp of labState.components) {
+        const p1 = holeToPixel(comp.c1, comp.r1);
+        const p2 = holeToPixel(comp.c2, comp.r2);
+        const midX = (p1.x + p2.x) / 2;
+        const midY = (p1.y + p2.y) / 2;
+        const angle = Math.atan2(p2.y - p1.y, p2.x - p1.x);
+        const isSelected = comp.id === labState.selectedId;
+        const stats = labState.solution.compStats.get(comp.id) || {};
+
+        // Component Metal Leads
+        ctx.strokeStyle = '#64748b';
+        ctx.lineWidth = 2.5;
+        ctx.beginPath();
+        ctx.moveTo(p1.x, p1.y);
+        ctx.lineTo(p2.x, p2.y);
+        ctx.stroke();
+
+        ctx.save();
+        ctx.translate(midX, midY);
+        ctx.rotate(angle);
+
+        if (comp.type === 'battery') {
+          ctx.fillStyle = '#0f172a';
+          ctx.strokeStyle = isSelected ? '#38bdf8' : '#f59e0b';
+          ctx.lineWidth = 2;
+          ctx.beginPath();
+          ctx.roundRect(-24, -12, 48, 24, 5);
+          ctx.fill();
+          ctx.stroke();
+          // + and - indicators
+          ctx.fillStyle = '#ef4444';
+          ctx.fillRect(-20, -4, 7, 8);
+          ctx.fillStyle = '#ffffff';
+          ctx.font = 'bold 10px JetBrains Mono, monospace';
+          ctx.textAlign = 'center';
+          ctx.textBaseline = 'middle';
+          ctx.fillText(`${comp.voltage}V`, 4, 0);
+        } else if (comp.type === 'resistor') {
+          ctx.fillStyle = '#fde68a';
+          ctx.strokeStyle = isSelected ? '#38bdf8' : '#92400e';
+          ctx.lineWidth = 1.5;
+          ctx.beginPath();
+          ctx.roundRect(-18, -7, 36, 14, 4);
+          ctx.fill();
+          ctx.stroke();
+          // Color bands
+          const bands = getResistorBands(comp.ohms);
+          bands.forEach((col, idx) => {
+            ctx.fillStyle = col;
+            ctx.fillRect(-11 + idx * 6, -6.5, 3, 13);
+          });
+        } else if (comp.type === 'led') {
+          const ledInfo = LED_COLORS[comp.color] || LED_COLORS.red;
+          if (stats.lit) {
+            ctx.shadowColor = ledInfo.hex;
+            ctx.shadowBlur = 18;
+          }
+          ctx.fillStyle = stats.burned ? '#1e293b' : ledInfo.hex;
+          ctx.strokeStyle = isSelected ? '#38bdf8' : '#0f172a';
+          ctx.lineWidth = 2;
+          ctx.beginPath();
+          ctx.arc(0, 0, 10, 0, Math.PI * 2);
+          ctx.fill();
+          ctx.stroke();
+          ctx.shadowBlur = 0;
+
+          if (stats.burned) {
+            ctx.strokeStyle = '#ef4444';
+            ctx.beginPath();
+            ctx.moveTo(-5, -5); ctx.lineTo(5, 5);
+            ctx.moveTo(5, -5); ctx.lineTo(-5, 5);
+            ctx.stroke();
+          }
+        } else if (comp.type === 'switch') {
+          ctx.fillStyle = '#1e293b';
+          ctx.strokeStyle = isSelected ? '#38bdf8' : '#a855f7';
+          ctx.lineWidth = 2;
+          ctx.beginPath();
+          ctx.roundRect(-16, -9, 32, 18, 4);
+          ctx.fill();
+          ctx.stroke();
+          // Lever
+          ctx.strokeStyle = comp.closed ? '#22c55e' : '#f43f5e';
+          ctx.lineWidth = 3;
+          ctx.beginPath();
+          ctx.moveTo(-10, 0);
+          ctx.lineTo(10, comp.closed ? 0 : -8);
+          ctx.stroke();
+        }
+        ctx.restore();
+      }
+
+      // Draw Pending Pin Highlight
+      if (labState.pendingPin) {
+        const pp = holeToPixel(labState.pendingPin.col, labState.pendingPin.row);
+        ctx.strokeStyle = '#06b6d4';
+        ctx.lineWidth = 2;
+        ctx.beginPath();
+        ctx.arc(pp.x, pp.y, 7, 0, Math.PI * 2);
+        ctx.stroke();
+      }
+
+      // Draw Multimeter Probes
+      const redP = holeToPixel(labState.redProbe.col, labState.redProbe.row);
+      const blkP = holeToPixel(labState.blackProbe.col, labState.blackProbe.row);
+
+      // Black Probe (-)
+      ctx.fillStyle = '#1e293b';
+      ctx.strokeStyle = '#ffffff';
+      ctx.lineWidth = 2;
+      ctx.beginPath();
+      ctx.arc(blkP.x, blkP.y, 7, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.stroke();
+      ctx.fillStyle = '#ffffff';
+      ctx.font = 'bold 9px sans-serif';
+      ctx.textAlign = 'center';
+      ctx.textBaseline = 'middle';
+      ctx.fillText('−', blkP.x, blkP.y);
+
+      // Red Probe (+)
+      ctx.fillStyle = '#ef4444';
+      ctx.beginPath();
+      ctx.arc(redP.x, redP.y, 7, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.stroke();
+      ctx.fillStyle = '#ffffff';
+      ctx.fillText('+', redP.x, redP.y);
+
+      ctx.restore();
+    }
+
+    function updateMultimeterAndLabUI() {
+      solveBreadboardCircuit();
+      renderBreadboardCanvas();
+
+      const sol = labState.solution;
+      const redNet = sol.findNet ? sol.findNet(getHoleElectricalNet(labState.redProbe.col, labState.redProbe.row)) : null;
+      const blkNet = sol.findNet ? sol.findNet(getHoleElectricalNet(labState.blackProbe.col, labState.blackProbe.row)) : null;
+
+      const vRed = (redNet && sol.nodeVoltages.get(redNet)) || 0;
+      const vBlk = (blkNet && sol.nodeVoltages.get(blkNet)) || 0;
+      const vDiff = vRed - vBlk;
+
+      const disp = document.getElementById('dmm-display');
+      const modeLbl = document.getElementById('dmm-mode-label');
+      document.getElementById('dmm-probes-label').textContent =
+        `RED: C${labState.redProbe.col + 1}R${labState.redProbe.row + 1} | BLK: C${labState.blackProbe.col + 1}R${labState.blackProbe.row + 1}`;
+
+      if (labState.dmmMode === 'V') {
+        modeLbl.textContent = 'DC VOLTAGE (V)';
+        disp.textContent = `${vDiff.toFixed(3)} V`;
+      } else if (labState.dmmMode === 'A') {
+        modeLbl.textContent = 'DC CURRENT (mA)';
+        disp.textContent = `${sol.totalCurrentMa.toFixed(1)} mA`;
+      } else if (labState.dmmMode === 'R') {
+        modeLbl.textContent = 'RESISTANCE (Ω)';
+        if (redNet && redNet === blkNet) {
+          disp.textContent = '0.00 Ω';
+        } else {
+          // Estimate equivalent resistance between probes if resistor spans them
+          const spanning = labState.components.find(c =>
+            c.type === 'resistor' &&
+            ((sol.findNet(getHoleElectricalNet(c.c1, c.r1)) === redNet && sol.findNet(getHoleElectricalNet(c.c2, c.r2)) === blkNet) ||
+             (sol.findNet(getHoleElectricalNet(c.c2, c.r2)) === redNet && sol.findNet(getHoleElectricalNet(c.c1, c.r1)) === blkNet))
+          );
+          disp.textContent = spanning ? `${spanning.ohms} Ω` : 'O.L (Open)';
+        }
+      } else if (labState.dmmMode === 'CONT') {
+        modeLbl.textContent = 'CONTINUITY TEST';
+        disp.textContent = (redNet && redNet === blkNet) ? 'BEEP (0 Ω)' : 'OPEN';
+      }
+
+      document.getElementById('lab-tel-v').textContent = `${(sol.supplyV || 0).toFixed(2)} V`;
+      document.getElementById('lab-tel-i').textContent = `${sol.totalCurrentMa.toFixed(1)} mA`;
+
+      const diagList = document.getElementById('lab-diagnostics-list');
+      diagList.innerHTML = sol.alerts.map(a => {
+        const cls = a.level === 'danger'
+          ? 'bg-rose-950/70 border-rose-800 text-rose-300'
+          : a.level === 'warn'
+            ? 'bg-amber-950/70 border-amber-800 text-amber-300'
+            : a.level === 'ok'
+              ? 'bg-emerald-950/70 border-emerald-800 text-emerald-300'
+              : 'bg-slate-950 border-slate-800 text-slate-300';
+        return `<div class="p-2 rounded-lg border ${cls}">${a.text}</div>`;
+      }).join('');
+
+      updateLabComponentInspector();
+    }
+
+    function updateLabComponentInspector() {
+      const inspector = document.getElementById('lab-comp-inspector');
+      const delBtn = document.getElementById('btn-lab-delete-comp');
+      const comp = labState.components.find(c => c.id === labState.selectedId);
+      const wire = labState.wires.find(w => w.id === labState.selectedId);
+
+      if (!comp && !wire) {
+        delBtn.classList.add('hidden');
+        inspector.innerHTML = `<p class="text-slate-400">Click any component or wire on the breadboard to inspect or modify its value.</p>`;
+        return;
+      }
+
+      delBtn.classList.remove('hidden');
+
+      if (wire) {
+        inspector.innerHTML = `
+          <div class="p-2.5 rounded-lg bg-slate-950 border border-slate-800 space-y-2">
+            <div class="font-semibold text-slate-200">Breadboard Jumper Wire #${wire.id}</div>
+            <div class="flex items-center gap-2">
+              <span class="text-slate-400">Color:</span>
+              <button data-wire-col="#ef4444" class="w-5 h-5 rounded-full bg-red-500 border border-white"></button>
+              <button data-wire-col="#1e293b" class="w-5 h-5 rounded-full bg-slate-800 border border-white"></button>
+              <button data-wire-col="#10b981" class="w-5 h-5 rounded-full bg-emerald-500 border border-white"></button>
+              <button data-wire-col="#eab308" class="w-5 h-5 rounded-full bg-yellow-500 border border-white"></button>
+            </div>
+          </div>
+        `;
+        inspector.querySelectorAll('[data-wire-col]').forEach(btn => {
+          btn.onclick = () => {
+            wire.color = btn.dataset.wireCol;
+            updateMultimeterAndLabUI();
+          };
+        });
+        return;
+      }
+
+      const stats = labState.solution.compStats.get(comp.id) || { voltage: 0, currentMa: 0 };
+
+      if (comp.type === 'battery') {
+        inspector.innerHTML = `
+          <div class="space-y-2">
+            <div class="font-semibold text-amber-400">DC Voltage Source</div>
+            <div>
+              <label class="block text-[11px] text-slate-400 mb-1">Voltage (V)</label>
+              <input id="lab-edit-v" type="number" step="0.1" min="0.5" max="48" value="${comp.voltage}" class="w-full bg-slate-950 border border-slate-700 rounded px-2 py-1 text-white font-mono-tech" />
+            </div>
+            <button id="btn-lab-pull-pack" class="w-full py-1.5 rounded bg-cyan-950 hover:bg-cyan-900 text-cyan-300 border border-cyan-800 text-[11px]">
+              Sync with 3D Pack (${(state.packAnalysis?.vOpenCircuit || 3.7).toFixed(2)}V)
+            </button>
+          </div>
+        `;
+        document.getElementById('lab-edit-v').onchange = (e) => {
+          comp.voltage = Math.max(0.1, parseFloat(e.target.value) || 3.7);
+          updateMultimeterAndLabUI();
+        };
+        document.getElementById('btn-lab-pull-pack').onclick = () => {
+          comp.voltage = Number((state.packAnalysis?.vOpenCircuit || 3.7).toFixed(2));
+          comp.rint = Number((state.packAnalysis?.rInternal || 0.05).toFixed(3));
+          updateMultimeterAndLabUI();
+        };
+      } else if (comp.type === 'resistor') {
+        inspector.innerHTML = `
+          <div class="space-y-2">
+            <div class="font-semibold text-cyan-400">Axial Resistor</div>
+            <div>
+              <label class="block text-[11px] text-slate-400 mb-1">Resistance (Ω)</label>
+              <input id="lab-edit-ohms" type="number" step="10" min="1" max="1000000" value="${comp.ohms}" class="w-full bg-slate-950 border border-slate-700 rounded px-2 py-1 text-white font-mono-tech" />
+            </div>
+            <div class="flex gap-1.5">
+              <button data-r-preset="100" class="px-2 py-1 rounded bg-slate-800 hover:bg-slate-700 font-mono-tech text-[11px]">100Ω</button>
+              <button data-r-preset="220" class="px-2 py-1 rounded bg-slate-800 hover:bg-slate-700 font-mono-tech text-[11px]">220Ω</button>
+              <button data-r-preset="1000" class="px-2 py-1 rounded bg-slate-800 hover:bg-slate-700 font-mono-tech text-[11px]">1kΩ</button>
+              <button data-r-preset="10000" class="px-2 py-1 rounded bg-slate-800 hover:bg-slate-700 font-mono-tech text-[11px]">10kΩ</button>
+            </div>
+            <div class="text-[11px] font-mono-tech text-slate-300">Drop: ${stats.voltage.toFixed(2)}V | Current: ${stats.currentMa.toFixed(2)}mA</div>
+          </div>
+        `;
+        document.getElementById('lab-edit-ohms').onchange = (e) => {
+          comp.ohms = Math.max(1, parseFloat(e.target.value) || 220);
+          updateMultimeterAndLabUI();
+        };
+        inspector.querySelectorAll('[data-r-preset]').forEach(b => {
+          b.onclick = () => {
+            comp.ohms = parseFloat(b.dataset.rPreset);
+            updateMultimeterAndLabUI();
+          };
+        });
+      } else if (comp.type === 'led') {
+        inspector.innerHTML = `
+          <div class="space-y-2">
+            <div class="font-semibold text-rose-400">Light Emitting Diode (LED)</div>
+            <div>
+              <label class="block text-[11px] text-slate-400 mb-1">LED Color (Vf)</label>
+              <select id="lab-edit-led-col" class="w-full bg-slate-950 border border-slate-700 rounded px-2 py-1 text-white">
+                <option value="red" ${comp.color === 'red' ? 'selected' : ''}>Red (Vf = 2.0V)</option>
+                <option value="green" ${comp.color === 'green' ? 'selected' : ''}>Green (Vf = 2.2V)</option>
+                <option value="blue" ${comp.color === 'blue' ? 'selected' : ''}>Blue (Vf = 3.1V)</option>
+                <option value="yellow" ${comp.color === 'yellow' ? 'selected' : ''}>Yellow (Vf = 2.1V)</option>
+                <option value="white" ${comp.color === 'white' ? 'selected' : ''}>White (Vf = 3.2V)</option>
+              </select>
+            </div>
+            <div class="text-[11px] font-mono-tech text-slate-300">
+              Current: ${stats.currentMa.toFixed(1)} mA ${stats.burned ? '<span class="text-rose-400 font-bold">(BURNED OUT!)</span>' : ''}
+            </div>
+          </div>
+        `;
+        document.getElementById('lab-edit-led-col').onchange = (e) => {
+          comp.color = e.target.value;
+          comp.vf = LED_COLORS[comp.color].vf;
+          updateMultimeterAndLabUI();
+        };
+      } else if (comp.type === 'switch') {
+        inspector.innerHTML = `
+          <div class="space-y-2">
+            <div class="font-semibold text-purple-400">SPST Toggle Switch</div>
+            <button id="btn-toggle-switch" class="w-full py-2 rounded-lg font-semibold ${comp.closed ? 'bg-emerald-600 text-slate-950' : 'bg-slate-800 text-slate-200 border border-slate-700'}">
+              ${comp.closed ? 'STATE: CLOSED (ON)' : 'STATE: OPEN (OFF)'}
+            </button>
+          </div>
+        `;
+        document.getElementById('btn-toggle-switch').onclick = () => {
+          comp.closed = !comp.closed;
+          updateMultimeterAndLabUI();
+        };
+      }
+    }
+
+    function initBreadboardInteractions() {
+      const canvas = document.getElementById('lab-canvas');
+      canvas.addEventListener('pointerdown', (e) => {
+        const rect = canvas.getBoundingClientRect();
+        const px = e.clientX - rect.left;
+        const py = e.clientY - rect.top;
+        const hole = pixelToNearestHole(px, py);
+
+        // Probe placement mode
+        if (labState.placingProbe && hole) {
+          if (labState.placingProbe === 'red') labState.redProbe = { col: hole.col, row: hole.row };
+          else labState.blackProbe = { col: hole.col, row: hole.row };
+          labState.placingProbe = null;
+          updateMultimeterAndLabUI();
+          return;
+        }
+
+        // Interaction / Select mode
+        if (labState.tool === 'select') {
+          // Check component body hit first
+          for (let i = labState.components.length - 1; i >= 0; i--) {
+            const c = labState.components[i];
+            const p1 = holeToPixel(c.c1, c.r1);
+            const p2 = holeToPixel(c.c2, c.r2);
+            const midX = (p1.x + p2.x) / 2;
+            const midY = (p1.y + p2.y) / 2;
+            if (Math.hypot(px - midX, py - midY) < 22) {
+              labState.selectedId = c.id;
+              if (c.type === 'switch') {
+                c.closed = !c.closed;
+              }
+              updateMultimeterAndLabUI();
+              return;
+            }
+          }
+          // Check wire midpoint hit
+          for (let i = labState.wires.length - 1; i >= 0; i--) {
+            const w = labState.wires[i];
+            const p1 = holeToPixel(w.c1, w.r1);
+            const p2 = holeToPixel(w.c2, w.r2);
+            if (Math.hypot(px - (p1.x + p2.x) / 2, py - ((p1.y + p2.y) / 2 - 9)) < 18) {
+              labState.selectedId = w.id;
+              updateMultimeterAndLabUI();
+              return;
+            }
+          }
+          labState.selectedId = null;
+          updateMultimeterAndLabUI();
+          return;
+        }
+
+        if (!hole) return;
+
+        // Two-pin placement for wire, battery, resistor, led, switch
+        if (!labState.pendingPin) {
+          labState.pendingPin = { col: hole.col, row: hole.row };
+          renderBreadboardCanvas();
+          showToast('Click second breadboard hole to place component.');
+        } else {
+          const p1 = labState.pendingPin;
+          labState.pendingPin = null;
+          if (p1.col === hole.col && p1.row === hole.row) {
+            renderBreadboardCanvas();
+            return;
+          }
+
+          if (labState.tool === 'wire') {
+            const wireCol = p1.row === 0 || p1.row === 12 ? '#ef4444' : p1.row === 1 || p1.row === 13 ? '#1e293b' : '#10b981';
+            const w = { id: nextLabId++, c1: p1.col, r1: p1.row, c2: hole.col, r2: hole.row, color: wireCol };
+            labState.wires.push(w);
+            labState.selectedId = w.id;
+          } else {
+            const newComp = {
+              id: nextLabId++,
+              type: labState.tool,
+              c1: p1.col,
+              r1: p1.row,
+              c2: hole.col,
+              r2: hole.row
+            };
+            if (labState.tool === 'battery') {
+              newComp.voltage = Number((state.packAnalysis?.vOpenCircuit || 5.0).toFixed(2));
+              newComp.rint = 0.05;
+            } else if (labState.tool === 'resistor') {
+              newComp.ohms = 220;
+            } else if (labState.tool === 'led') {
+              newComp.color = 'red';
+              newComp.vf = 2.0;
+            } else if (labState.tool === 'switch') {
+              newComp.closed = true;
+            }
+            labState.components.push(newComp);
+            labState.selectedId = newComp.id;
+          }
+          updateMultimeterAndLabUI();
+        }
+      });
+
+      window.addEventListener('resize', () => {
+        if (state.activeSection === 'laboratory') renderBreadboardCanvas();
+      });
+    }
+
+    // =========================================================================
+    // 8. PRESET GENERATORS (3D BATTERY PACKS & LAB CIRCUITS)
+    // =========================================================================
+    function loadBatteryPackPreset(presetKey) {
+      state.batteries = [];
+      state.wires = [];
+      state.pendingTerminal = null;
+      nextBatId = 1;
+      nextWireId = 1;
+
+      const addCell = (fmt, x, z, rot = 0) => {
+        const p = BATTERY_PRESETS[fmt];
+        const b = {
+          id: nextBatId++,
+          format: fmt,
+          chemistry: p.chemistry,
+          voltage: p.voltage,
+          capacity: p.capacity,
+          rint: p.rint,
+          soc: 100,
+          x,
+          z,
+          rotationDeg: rot
+        };
+        state.batteries.push(b);
+        return b;
+      };
+
+      if (presetKey === '1s1p') {
+        const b1 = addCell('18650', 0, 0, 0);
+        state.selectedBatteryId = b1.id;
+      } else if (presetKey === '3s1p') {
+        const b1 = addCell('18650', -1.8, 0, 0);
+        const b2 = addCell('18650', 0, 0, 180);
+        const b3 = addCell('18650', 1.8, 0, 0);
+        state.wires.push(
+          { id: nextWireId++, fromBat: b1.id, fromPol: '+', toBat: b2.id, toPol: '-' },
+          { id: nextWireId++, fromBat: b2.id, fromPol: '+', toBat: b3.id, toPol: '-' }
+        );
+        state.selectedBatteryId = b1.id;
+      } else if (presetKey === '1s3p') {
+        const b1 = addCell('18650', -1.8, 0, 0);
+        const b2 = addCell('18650', 0, 0, 0);
+        const b3 = addCell('18650', 1.8, 0, 0);
+        state.wires.push(
+          { id: nextWireId++, fromBat: b1.id, fromPol: '+', toBat: b2.id, toPol: '+' },
+          { id: nextWireId++, fromBat: b2.id, fromPol: '+', toBat: b3.id, toPol: '+' },
+          { id: nextWireId++, fromBat: b1.id, fromPol: '-', toBat: b2.id, toPol: '-' },
+          { id: nextWireId++, fromBat: b2.id, fromPol: '-', toBat: b3.id, toPol: '-' }
+        );
+        state.selectedBatteryId = b1.id;
+      } else if (presetKey === '2s2p') {
+        const b1 = addCell('18650', -1.5, -1.4, 0);
+        const b2 = addCell('18650', 1.5, -1.4, 0);
+        const b3 = addCell('18650', -1.5, 1.4, 0);
+        const b4 = addCell('18650', 1.5, 1.4, 0);
+        // Bank 1 parallel (b1 || b2), Bank 2 parallel (b3 || b4), Series b1+ -> b3-
+        state.wires.push(
+          { id: nextWireId++, fromBat: b1.id, fromPol: '+', toBat: b2.id, toPol: '+' },
+          { id: nextWireId++, fromBat: b1.id, fromPol: '-', toBat: b2.id, toPol: '-' },
+          { id: nextWireId++, fromBat: b3.id, fromPol: '+', toBat: b4.id, toPol: '+' },
+          { id: nextWireId++, fromBat: b3.id, fromPol: '-', toBat: b4.id, toPol: '-' },
+          { id: nextWireId++, fromBat: b1.id, fromPol: '+', toBat: b3.id, toPol: '-' }
+        );
+        state.selectedBatteryId = b1.id;
+      } else if (presetKey === 'short_demo') {
+        const b1 = addCell('18650', -1.2, 0, 0);
+        const b2 = addCell('18650', 1.2, 0, 0);
+        state.wires.push(
+          { id: nextWireId++, fromBat: b1.id, fromPol: '+', toBat: b1.id, toPol: '-' }
+        );
+        state.selectedBatteryId = b1.id;
+      }
+
+      refreshAllViews();
+    }
+
+    function loadLabCircuitPreset(presetKey) {
+      labState.components = [];
+      labState.wires = [];
+      labState.selectedId = null;
+      labState.pendingPin = null;
+      nextLabId = 1;
+
+      if (presetKey === 'led_resistor') {
+        labState.components.push(
+          { id: nextLabId++, type: 'battery', c1: 1, r1: 0, c2: 1, r2: 1, voltage: 5.0, rint: 0.05 },
+          { id: nextLabId++, type: 'switch', c1: 4, r1: 0, c2: 4, r2: 3, closed: true },
+          { id: nextLabId++, type: 'resistor', c1: 4, r1: 5, c2: 10, r2: 5, ohms: 220 },
+          { id: nextLabId++, type: 'led', c1: 10, r1: 4, c2: 13, r2: 4, color: 'green', vf: 2.2 }
+        );
+        labState.wires.push(
+          { id: nextLabId++, c1: 13, r1: 3, c2: 13, r2: 1, color: '#1e293b' }
+        );
+        labState.redProbe = { col: 10, row: 3 };
+        labState.blackProbe = { col: 13, row: 1 };
+      } else if (presetKey === 'voltage_divider') {
+        labState.components.push(
+          { id: nextLabId++, type: 'battery', c1: 1, r1: 0, c2: 1, r2: 1, voltage: 10.0, rint: 0.05 },
+          { id: nextLabId++, type: 'resistor', c1: 5, r1: 0, c2: 5, r2: 4, ohms: 1000 },
+          { id: nextLabId++, type: 'resistor', c1: 5, r1: 5, c2: 5, r2: 1, ohms: 1000 }
+        );
+        labState.redProbe = { col: 5, row: 3 };
+        labState.blackProbe = { col: 5, row: 1 };
+      } else if (presetKey === 'parallel_leds') {
+        labState.components.push(
+          { id: nextLabId++, type: 'battery', c1: 1, r1: 0, c2: 1, r2: 1, voltage: 3.7, rint: 0.03 },
+          { id: nextLabId++, type: 'switch', c1: 3, r1: 0, c2: 3, r2: 2, closed: true },
+          { id: nextLabId++, type: 'resistor', c1: 3, r1: 4, c2: 7, r2: 4, ohms: 100 },
+          { id: nextLabId++, type: 'led', c1: 7, r1: 3, c2: 10, r2: 3, color: 'red', vf: 2.0 },
+          { id: nextLabId++, type: 'resistor', c1: 3, r1: 6, c2: 7, r2: 6, ohms: 100 },
+          { id: nextLabId++, type: 'led', c1: 7, r1: 5, c2: 10, r2: 5, color: 'yellow', vf: 2.1 }
+        );
+        labState.wires.push(
+          { id: nextLabId++, c1: 10, r1: 2, c2: 10, r2: 1, color: '#1e293b' }
+        );
+        labState.redProbe = { col: 7, row: 2 };
+        labState.blackProbe = { col: 10, row: 1 };
+      } else if (presetKey === 'short_test') {
+        labState.components.push(
+          { id: nextLabId++, type: 'battery', c1: 1, r1: 0, c2: 1, r2: 1, voltage: 9.0, rint: 0.05 },
+          { id: nextLabId++, type: 'led', c1: 6, r1: 0, c2: 6, r2: 1, color: 'blue', vf: 3.1 }
+        );
+        labState.redProbe = { col: 6, row: 0 };
+        labState.blackProbe = { col: 6, row: 1 };
+      }
+
+      updateMultimeterAndLabUI();
+    }
+
+    // =========================================================================
+    // 9. UI BINDINGS, LOCALIZATION & PROJECT STORAGE
+    // =========================================================================
+    function applyLanguage(lang) {
+      state.lang = lang;
+      const isRtl = lang === 'ar';
+      document.documentElement.lang = lang;
+      document.documentElement.dir = isRtl ? 'rtl' : 'ltr';
+      const dict = I18N[lang] || I18N.en;
+      document.querySelectorAll('[data-i18n]').forEach(el => {
+        const key = el.getAttribute('data-i18n');
+        if (dict[key]) el.textContent = dict[key];
+      });
+    }
+
+    function updateSimulatorInspectorUI() {
+      const pack = state.packAnalysis || analyzeBatteryPack();
+
+      // Header & Sidebar Telemetry
+      document.getElementById('hdr-topology').textContent = pack.topology;
+      document.getElementById('hdr-voltage').textContent = `${pack.vNominal.toFixed(2)} V`;
+      document.getElementById('hdr-capacity').textContent = `${pack.capacityMah.toFixed(0)} mAh`;
+      document.getElementById('hdr-energy').textContent = `${pack.energyWh.toFixed(2)} Wh`;
+
+      document.getElementById('sb-topology').textContent = pack.topology;
+      document.getElementById('sb-cells').textContent = `${pack.cellCount}`;
+      document.getElementById('sb-vnom').textContent = `${pack.vNominal.toFixed(2)} V`;
+      document.getElementById('sb-cap').textContent = `${pack.capacityMah.toFixed(0)} mAh`;
+      document.getElementById('sb-rint').textContent = `${pack.rInternal.toFixed(3)} Ω`;
+
+      const sbBadge = document.getElementById('sb-safety-badge');
+      if (pack.hasShortCircuit) {
+        sbBadge.className = 'mt-2 px-2 py-1.5 rounded-lg bg-rose-950 border border-rose-700 text-rose-300 text-[11px] flex items-center gap-1.5';
+        sbBadge.innerHTML = `<i data-lucide="alert-octagon" class="w-3.5 h-3.5 shrink-0"></i><span>SHORT CIRCUIT!</span>`;
+      } else if (pack.warnings.some(w => w.level === 'danger' || w.level === 'warn')) {
+        sbBadge.className = 'mt-2 px-2 py-1.5 rounded-lg bg-amber-950/80 border border-amber-700 text-amber-300 text-[11px] flex items-center gap-1.5';
+        sbBadge.innerHTML = `<i data-lucide="alert-triangle" class="w-3.5 h-3.5 shrink-0"></i><span>Check Warnings</span>`;
+      } else {
+        sbBadge.className = 'mt-2 px-2 py-1.5 rounded-lg bg-emerald-950/60 border border-emerald-800/60 text-emerald-300 text-[11px] flex items-center gap-1.5';
+        sbBadge.innerHTML = `<i data-lucide="shield-check" class="w-3.5 h-3.5 shrink-0"></i><span>Circuit Nominal</span>`;
+      }
+
+      // Properties Panel
+      const selected = state.batteries.find(b => b.id === state.selectedBatteryId);
+      const formEl = document.getElementById('battery-props-form');
+      const emptyEl = document.getElementById('no-battery-selected');
+      const delBtn = document.getElementById('btn-delete-battery');
+
+      if (!selected) {
+        formEl.classList.add('hidden');
+        emptyEl.classList.remove('hidden');
+        delBtn.classList.add('hidden');
+      } else {
+        formEl.classList.remove('hidden');
+        emptyEl.classList.add('hidden');
+        delBtn.classList.remove('hidden');
+
+        document.getElementById('prop-format').value = selected.format;
+        document.getElementById('prop-chemistry').value = selected.chemistry;
+        document.getElementById('prop-voltage').value = selected.voltage;
+        document.getElementById('prop-capacity').value = selected.capacity;
+        document.getElementById('prop-rint').value = selected.rint;
+        document.getElementById('prop-soc').value = selected.soc;
+        const actualV = getCellOpenCircuitVoltage(selected);
+        document.getElementById('prop-soc-val').textContent = `${selected.soc}% (${actualV.toFixed(2)}V)`;
+      }
+
+      // Diagnostics Panel
+      document.getElementById('diag-topology-badge').textContent = pack.topology;
+      document.getElementById('diag-vnom').textContent = `${pack.vNominal.toFixed(2)} V`;
+      document.getElementById('diag-vmax').textContent = `${pack.vMax.toFixed(2)} V`;
+      document.getElementById('diag-cap').textContent = `${pack.capacityMah.toFixed(0)} mAh`;
+      document.getElementById('diag-energy').textContent = `${pack.energyWh.toFixed(2)} Wh`;
+
+      const alertsContainer = document.getElementById('safety-alerts-container');
+      alertsContainer.innerHTML = pack.warnings.map(w => {
+        const cls = w.level === 'danger'
+          ? 'bg-rose-950/75 border-rose-800 text-rose-300'
+          : w.level === 'warn'
+            ? 'bg-amber-950/75 border-amber-800 text-amber-300'
+            : 'bg-slate-950 border-slate-800 text-slate-300';
+        return `<div class="p-2 rounded-lg border ${cls}">${w.text}</div>`;
+      }).join('');
+
+      // Wire List
+      document.getElementById('wire-count').textContent = `${state.wires.length}`;
+      const wireListEl = document.getElementById('wire-list');
+      wireListEl.innerHTML = state.wires.map(w => {
+        const badgeColor = w.fromPol === w.toPol
+          ? (w.fromPol === '+' ? 'text-rose-400' : 'text-slate-400')
+          : 'text-amber-400';
+        return `
+          <div class="flex items-center justify-between px-2.5 py-1.5 rounded-lg bg-slate-950 border border-slate-800">
+            <span class="font-mono-tech ${badgeColor}">#${w.fromBat}(${w.fromPol}) ↔ #${w.toBat}(${w.toPol})</span>
+            <button data-del-wire="${w.id}" class="text-slate-500 hover:text-rose-400 px-1">✕</button>
+          </div>
+        `;
+      }).join('');
+
+      wireListEl.querySelectorAll('[data-del-wire]').forEach(btn => {
+        btn.onclick = () => {
+          const id = parseInt(btn.dataset.delWire, 10);
+          state.wires = state.wires.filter(w => w.id !== id);
+          refreshAllViews();
+        };
+      });
+
+      if (window.lucide) window.lucide.createIcons();
+    }
+
+    function refreshAllViews() {
+      analyzeBatteryPack();
+      rebuild3DScene();
+      updateSimulatorInspectorUI();
+      updateElectricalCalculator();
+    }
+
+    function switchSection(sectionName) {
+      state.activeSection = sectionName;
+      document.querySelectorAll('.section-view').forEach(el => el.classList.add('hidden'));
+      document.getElementById(`section-${sectionName}`).classList.remove('hidden');
+
+      document.querySelectorAll('.nav-tab').forEach(btn => {
+        const active = btn.dataset.section === sectionName;
+        btn.className = active
+          ? 'nav-tab w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-start text-sm font-medium bg-cyan-500/15 text-cyan-300 border border-cyan-500/30 transition'
+          : 'nav-tab w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-start text-sm font-medium text-slate-300 hover:bg-slate-800/80 border border-transparent transition';
+      });
+
+      // Close mobile drawer if open
+      document.getElementById('sidebar-nav').classList.add('-translate-x-full');
+
+      if (sectionName === 'simulator') {
+        setTimeout(onThreeResize, 30);
+      } else if (sectionName === 'calculator') {
+        updateElectricalCalculator();
+      } else if (sectionName === 'laboratory') {
+        setTimeout(updateMultimeterAndLabUI, 30);
+      }
+    }
+
+    // LocalStorage Project Management
+    const STORAGE_KEY = 'batterylab_3d_projects_v1';
+
+    function getSavedProjects() {
+      try {
+        return JSON.parse(localStorage.getItem(STORAGE_KEY) || '[]');
+      } catch {
+        return [];
+      }
+    }
+
+    function renderSavedProjectsList() {
+      const listEl = document.getElementById('saved-projects-list');
+      const projects = getSavedProjects();
+      if (projects.length === 0) {
+        listEl.innerHTML = `<div class="text-center text-slate-500 py-4">No saved projects yet.</div>`;
+        return;
+      }
+      listEl.innerHTML = projects.map((proj, idx) => `
+        <div class="flex items-center justify-between p-2.5 rounded-xl bg-slate-950 border border-slate-800">
+          <div>
+            <div class="font-semibold text-slate-200">${proj.name}</div>
+            <div class="text-[10px] text-slate-400 font-mono-tech">${proj.date} • ${proj.batteries.length} cells</div>
+          </div>
+          <div class="flex items-center gap-1.5">
+            <button data-load-proj="${idx}" class="px-2.5 py-1 rounded bg-cyan-600 hover:bg-cyan-500 text-slate-950 font-semibold">Load</button>
+            <button data-del-proj="${idx}" class="px-2 py-1 rounded bg-slate-800 hover:bg-rose-950 text-rose-400">✕</button>
+          </div>
+        </div>
+      `).join('');
+
+      listEl.querySelectorAll('[data-load-proj]').forEach(btn => {
+        btn.onclick = () => {
+          const proj = getSavedProjects()[parseInt(btn.dataset.loadProj, 10)];
+          if (proj) {
+            state.batteries = JSON.parse(JSON.stringify(proj.batteries));
+            state.wires = JSON.parse(JSON.stringify(proj.wires));
+            state.selectedBatteryId = state.batteries[0]?.id || null;
+            nextBatId = Math.max(1, ...state.batteries.map(b => b.id + 1));
+            nextWireId = Math.max(1, ...state.wires.map(w => w.id + 1));
+            if (proj.lab) {
+              labState.components = JSON.parse(JSON.stringify(proj.lab.components || []));
+              labState.wires = JSON.parse(JSON.stringify(proj.lab.wires || []));
+            }
+            refreshAllViews();
+            updateMultimeterAndLabUI();
+            document.getElementById('projects-modal').classList.add('hidden');
+            showToast(`Loaded "${proj.name}"`);
+          }
+        };
+      });
+
+      listEl.querySelectorAll('[data-del-proj]').forEach(btn => {
+        btn.onclick = () => {
+          const projects = getSavedProjects();
+          projects.splice(parseInt(btn.dataset.delProj, 10), 1);
+          localStorage.setItem(STORAGE_KEY, JSON.stringify(projects));
+          renderSavedProjectsList();
+        };
+      });
+    }
+
+    // =========================================================================
+    // 10. INITIALIZATION & EVENT LISTENERS
+    // =========================================================================
+    window.addEventListener('DOMContentLoaded', () => {
+      initThreeWorkspace();
+      initBreadboardInteractions();
+
+      // Navigation Tabs
+      document.querySelectorAll('.nav-tab').forEach(btn => {
+        btn.addEventListener('click', () => switchSection(btn.dataset.section));
+      });
+
+      document.getElementById('btn-mobile-menu').addEventListener('click', () => {
+        document.getElementById('sidebar-nav').classList.toggle('-translate-x-full');
+      });
+
+      // Language Switcher
+      document.getElementById('lang-selector').addEventListener('change', (e) => {
+        applyLanguage(e.target.value);
+      });
+
+      // Low-Performance Mode Toggle
+      document.getElementById('btn-low-perf').addEventListener('click', () => {
+        state.lowPerf = !state.lowPerf;
+        const badge = document.getElementById('low-perf-badge');
+        badge.className = state.lowPerf ? 'w-2 h-2 rounded-full bg-emerald-400' : 'w-2 h-2 rounded-full bg-slate-600';
+        renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, state.lowPerf ? 1.0 : 1.5));
+        rebuild3DScene();
+        showToast(state.lowPerf ? 'Low-Performance Mode Enabled (1.0x PixelRatio, Low-Poly)' : 'Standard Render Quality Restored');
+      });
+
+      // Add Battery Buttons
+      document.querySelectorAll('[data-add-preset]').forEach(btn => {
+        btn.addEventListener('click', () => {
+          const fmt = btn.dataset.addPreset;
+          const p = BATTERY_PRESETS[fmt];
+          const offset = (state.batteries.length % 5) * 1.35 - 2.7;
+          const rowZ = Math.floor(state.batteries.length / 5) * 2.4;
+          const bat = {
+            id: nextBatId++,
+            format: fmt,
+            chemistry: p.chemistry,
+            voltage: p.voltage,
+            capacity: p.capacity,
+            rint: p.rint,
+            soc: 100,
+            x: offset,
+            z: rowZ,
+            rotationDeg: 0
+          };
+          state.batteries.push(bat);
+          state.selectedBatteryId = bat.id;
+          refreshAllViews();
+        });
+      });
+
+      // Interaction Mode Toggle (Move vs Connect Wire)
+      const btnMove = document.getElementById('mode-select-move');
+      const btnWire = document.getElementById('mode-wire');
+      btnMove.addEventListener('click', () => {
+        state.interactionMode = 'move';
+        state.pendingTerminal = null;
+        btnMove.className = 'px-2.5 py-1 rounded-md text-xs font-medium bg-cyan-600 text-white flex items-center gap-1 transition';
+        btnWire.className = 'px-2.5 py-1 rounded-md text-xs font-medium text-slate-300 hover:text-white flex items-center gap-1 transition';
+        document.getElementById('sim-hint-text').textContent = I18N[state.lang].hintMove;
+      });
+      btnWire.addEventListener('click', () => {
+        state.interactionMode = 'wire';
+        state.pendingTerminal = null;
+        btnWire.className = 'px-2.5 py-1 rounded-md text-xs font-medium bg-rose-600 text-white flex items-center gap-1 transition';
+        btnMove.className = 'px-2.5 py-1 rounded-md text-xs font-medium text-slate-300 hover:text-white flex items-center gap-1 transition';
+        document.getElementById('sim-hint-text').textContent = I18N[state.lang].hintWire;
+      });
+
+      document.getElementById('btn-clear-wires').addEventListener('click', () => {
+        state.wires = [];
+        state.pendingTerminal = null;
+        refreshAllViews();
+        showToast('All battery wires cleared.');
+      });
+
+      document.getElementById('pack-preset-select').addEventListener('change', (e) => {
+        if (e.target.value) {
+          loadBatteryPackPreset(e.target.value);
+          e.target.value = '';
+        }
+      });
+
+      // Camera Angle Presets
+      document.getElementById('btn-cam-top').onclick = () => {
+        camera.position.set(0, 12, 0.1);
+        controls.target.set(0, 0, 0);
+        needsRender = true;
+      };
+      document.getElementById('btn-cam-iso').onclick = () => {
+        camera.position.set(0, 8.5, 9.5);
+        controls.target.set(0, 0, 0);
+        needsRender = true;
+      };
+      document.getElementById('btn-cam-front').onclick = () => {
+        camera.position.set(0, 2.5, 11);
+        controls.target.set(0, 0.5, 0);
+        needsRender = true;
+      };
+
+      // Selected Battery Form Inputs
+      const bindPropInput = (id, handler) => {
+        document.getElementById(id).addEventListener('input', (e) => {
+          const bat = state.batteries.find(b => b.id === state.selectedBatteryId);
+          if (!bat) return;
+          handler(bat, e.target.value);
+          refreshAllViews();
+        });
+      };
+
+      bindPropInput('prop-format', (bat, val) => {
+        bat.format = val;
+        const p = BATTERY_PRESETS[val];
+        if (p) {
+          bat.voltage = p.voltage;
+          bat.capacity = p.capacity;
+          bat.rint = p.rint;
+          bat.chemistry = p.chemistry;
+        }
+      });
+      bindPropInput('prop-chemistry', (bat, val) => {
+        bat.chemistry = val;
+        const spec = CHEMISTRY_SPECS[val];
+        if (spec) bat.voltage = spec.vNom;
+      });
+      bindPropInput('prop-voltage', (bat, val) => { bat.voltage = Math.max(0.2, parseFloat(val) || 3.7); });
+      bindPropInput('prop-capacity', (bat, val) => { bat.capacity = Math.max(10, parseFloat(val) || 2000); });
+      bindPropInput('prop-rint', (bat, val) => { bat.rint = Math.max(0.001, parseFloat(val) || 0.03); });
+      bindPropInput('prop-soc', (bat, val) => { bat.soc = parseInt(val, 10); });
+
+      document.getElementById('btn-rotate-left').onclick = () => {
+        const bat = state.batteries.find(b => b.id === state.selectedBatteryId);
+        if (bat) { bat.rotationDeg = (bat.rotationDeg - 90) % 360; refreshAllViews(); }
+      };
+      document.getElementById('btn-rotate-right').onclick = () => {
+        const bat = state.batteries.find(b => b.id === state.selectedBatteryId);
+        if (bat) { bat.rotationDeg = (bat.rotationDeg + 90) % 360; refreshAllViews(); }
+      };
+      document.getElementById('btn-flip-polarity').onclick = () => {
+        const bat = state.batteries.find(b => b.id === state.selectedBatteryId);
+        if (bat) { bat.rotationDeg = (bat.rotationDeg + 180) % 360; refreshAllViews(); }
+      };
+
+      document.getElementById('btn-delete-battery').onclick = () => {
+        if (!state.selectedBatteryId) return;
+        const delId = state.selectedBatteryId;
+        state.batteries = state.batteries.filter(b => b.id !== delId);
+        state.wires = state.wires.filter(w => w.fromBat !== delId && w.toBat !== delId);
+        state.selectedBatteryId = state.batteries[0]?.id || null;
+        refreshAllViews();
+      };
+
+      // Section 2: Calculator Inputs
+      document.getElementById('calc-load-mode').addEventListener('change', (e) => {
+        state.calc.loadMode = e.target.value;
+        const lbl = document.getElementById('calc-load-label');
+        if (e.target.value === 'resistance') lbl.textContent = 'Load R (Ω)';
+        else if (e.target.value === 'current') lbl.textContent = 'Target I (A)';
+        else lbl.textContent = 'Target P (W)';
+        updateElectricalCalculator();
+      });
+
+      document.getElementById('calc-load-value').addEventListener('input', (e) => {
+        state.calc.loadValue = parseFloat(e.target.value) || 0.1;
+        updateElectricalCalculator();
+      });
+
+      document.getElementById('btn-sync-lab-source').addEventListener('click', () => {
+        const pack = state.packAnalysis || analyzeBatteryPack();
+        const bat = labState.components.find(c => c.type === 'battery');
+        if (bat) {
+          bat.voltage = Number(pack.vOpenCircuit.toFixed(2));
+          bat.rint = Number(Math.max(0.02, pack.rInternal).toFixed(3));
+        }
+        switchSection('laboratory');
+        showToast(`Synced ${pack.topology} (${pack.vOpenCircuit.toFixed(2)}V) to Lab DC Source!`);
+      });
+
+      // Section 3: Lab Tools & DMM
+      document.querySelectorAll('.lab-tool-btn').forEach(btn => {
+        btn.addEventListener('click', () => {
+          labState.tool = btn.dataset.labTool;
+          labState.pendingPin = null;
+          document.querySelectorAll('.lab-tool-btn').forEach(b => {
+            b.className = b === btn
+              ? 'lab-tool-btn px-2.5 py-1.5 rounded-lg bg-cyan-600 text-white text-xs font-medium flex items-center gap-1.5'
+              : 'lab-tool-btn px-2.5 py-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700 text-xs font-medium flex items-center gap-1.5';
+          });
+        });
+      });
+
+      document.querySelectorAll('.dmm-mode-btn').forEach(btn => {
+        btn.addEventListener('click', () => {
+          labState.dmmMode = btn.dataset.dmmMode;
+          document.querySelectorAll('.dmm-mode-btn').forEach(b => {
+            b.className = b === btn
+              ? 'dmm-mode-btn py-1.5 rounded bg-amber-500 text-slate-950 font-bold'
+              : 'dmm-mode-btn py-1.5 rounded bg-slate-800 text-slate-300 hover:bg-slate-700';
+          });
+          updateMultimeterAndLabUI();
+        });
+      });
+
+      document.getElementById('btn-place-red-probe').onclick = () => {
+        labState.placingProbe = 'red';
+        showToast('Click any hole on the breadboard to place the RED (+) probe.');
+      };
+      document.getElementById('btn-place-black-probe').onclick = () => {
+        labState.placingProbe = 'black';
+        showToast('Click any hole on the breadboard to place the BLACK (-) probe.');
+      };
+
+      document.getElementById('btn-lab-delete-comp').onclick = () => {
+        if (!labState.selectedId) return;
+        labState.components = labState.components.filter(c => c.id !== labState.selectedId);
+        labState.wires = labState.wires.filter(w => w.id !== labState.selectedId);
+        labState.selectedId = null;
+        updateMultimeterAndLabUI();
+      };
+
+      document.getElementById('lab-preset-select').addEventListener('change', (e) => {
+        if (e.target.value) {
+          loadLabCircuitPreset(e.target.value);
+          e.target.value = '';
+        }
+      });
+
+      document.getElementById('btn-lab-clear').onclick = () => {
+        labState.components = [];
+        labState.wires = [];
+        labState.selectedId = null;
+        updateMultimeterAndLabUI();
+      };
+
+      // Global Project Modal, Export PNG & Reset
+      document.getElementById('btn-projects').onclick = () => {
+        renderSavedProjectsList();
+        document.getElementById('projects-modal').classList.remove('hidden');
+      };
+      document.getElementById('btn-close-projects').onclick = () => {
+        document.getElementById('projects-modal').classList.add('hidden');
+      };
+      document.getElementById('btn-save-project').onclick = () => {
+        const nameInput = document.getElementById('project-name-input');
+        const name = nameInput.value.trim() || `BatteryPack_${new Date().toLocaleTimeString()}`;
+        const projects = getSavedProjects();
+        projects.unshift({
+          name,
+          date: new Date().toLocaleDateString(),
+          batteries: state.batteries,
+          wires: state.wires,
+          lab: { components: labState.components, wires: labState.wires }
+        });
+        localStorage.setItem(STORAGE_KEY, JSON.stringify(projects.slice(0, 20)));
+        nameInput.value = '';
+        renderSavedProjectsList();
+        showToast(`Saved "${name}" locally.`);
+      };
+
+      document.getElementById('btn-export-png').onclick = () => {
+        let dataUrl = '';
+        if (state.activeSection === 'laboratory') {
+          dataUrl = document.getElementById('lab-canvas').toDataURL('image/png');
+        } else {
+          renderer.render(scene, camera);
+          dataUrl = renderer.domElement.toDataURL('image/png');
+        }
+        const a = document.createElement('a');
+        a.href = dataUrl;
+        a.download = `BatteryLab3D_${state.packAnalysis?.topology || 'export'}.png`;
+        a.click();
+        showToast('Exported PNG snapshot.');
+      };
+
+      document.getElementById('btn-reset-all').onclick = () => {
+        loadBatteryPackPreset('1s1p');
+        loadLabCircuitPreset('led_resistor');
+        showToast('Workspace reset to default.');
+      };
+
+      // Boot default workspace
+      loadBatteryPackPreset('3s1p');
+      loadLabCircuitPreset('led_resistor');
+      if (window.lucide) window.lucide.createIcons();
+    });
+  </script>
+</body>
+</html>
