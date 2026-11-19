@@ -11,10 +11,37 @@
   <meta name="google-site-verification" content="nEdroAxk7Qwv6Vi8zyGGTBJIRJf1zGAntQyZ_Pq8E4I" />
   <script async src="https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=ca-pub-6540797721977706"
      crossorigin="anonymous"></script>
-  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
   <meta name="google-adsense-account" content="ca-pub-6540797721977706">
-  <link rel="icon" type="image/png" href="/file_00000000a4348210be5b9336c4ca200b">
-  <title>BatteryLab 3D — Interactive Battery Simulator &amp; Electronics Workbench</title>
+  <meta name="description" content="Explore Battery Lab 3D: an interactive 3D battery pack simulator, series and parallel connection analyzer, electrical calculator, and virtual electronics workbench with a DC circuit solver and multimeter." />
+  <meta name="robots" content="index,follow,max-image-preview:large" />
+  <link rel="canonical" href="https://battery.batterylab.workers.dev/" />
+  <link rel="icon" type="image/png" href="/file_00000000a4348210be5b9336c4ca200b.png" />
+  <meta property="og:type" content="website" />
+  <meta property="og:site_name" content="Battery Lab 3D" />
+  <meta property="og:title" content="Battery Lab 3D — Battery Simulator &amp; Electronics Workbench" />
+  <meta property="og:description" content="Simulate battery packs, explore series and parallel connections, calculate electrical values, and test circuits in a virtual electronics lab." />
+  <meta property="og:url" content="https://battery.batterylab.workers.dev/" />
+  <meta property="og:image" content="https://battery.batterylab.workers.dev/file_00000000a4348210be5b9336c4ca200b.png" />
+  <meta property="og:image:alt" content="Battery Lab 3D application icon" />
+  <meta name="twitter:card" content="summary_large_image" />
+  <meta name="twitter:title" content="Battery Lab 3D — Battery Simulator &amp; Electronics Workbench" />
+  <meta name="twitter:description" content="An interactive battery pack simulator, electrical calculator, and virtual electronics workbench." />
+  <meta name="twitter:image" content="https://battery.batterylab.workers.dev/file_00000000a4348210be5b9336c4ca200b.png" />
+  <title>Battery Lab 3D — Interactive Battery Simulator &amp; Electronics Workbench</title>
+  <script type="application/ld+json">
+  {
+    "@context": "https://schema.org",
+    "@type": "SoftwareApplication",
+    "name": "Battery Lab 3D",
+    "applicationCategory": "EducationalApplication",
+    "operatingSystem": "Web browser",
+    "url": "https://battery.batterylab.workers.dev/",
+    "description": "Interactive 3D battery pack simulator, electrical calculator, and virtual electronics workbench with DC circuit analysis and multimeter.",
+    "image": "https://battery.batterylab.workers.dev/file_00000000a4348210be5b9336c4ca200b.png",
+    "offers": { "@type": "Offer", "price": "0", "priceCurrency": "USD" }
+  }
+  </script>
   <!-- Tailwind CSS -->
   <script src="https://cdn.tailwindcss.com"></script>
   <!-- Inter & JetBrains Mono Fonts -->
@@ -37,12 +64,25 @@
       --font-sans: 'Inter', system-ui, -apple-system, sans-serif;
       --font-mono: 'JetBrains Mono', monospace;
     }
+    html, body { max-width: 100%; overflow-x: hidden; }
+    body.h-screen { height: 100dvh; }
     body {
       font-family: var(--font-sans);
       background-color: #090d16;
       color: #e2e8f0;
-      overflow-x: hidden;
       -webkit-tap-highlight-color: transparent;
+      min-height: 100vh;
+      min-height: 100dvh;
+    }
+    button, select, input { touch-action: manipulation; }
+    button { min-height: 32px; }
+    #three-container, #lab-canvas-wrapper { min-width: 0; max-width: 100%; }
+    #three-container canvas, #lab-canvas { max-width: 100%; }
+    [dir="rtl"] #sidebar-nav.-translate-x-full { transform: translateX(100%); }
+    @media (max-width: 640px) {
+      #header-telemetry { display: none !important; }
+      #lang-selector { min-height: 36px; }
+      #lab-canvas-wrapper { min-height: 280px; }
     }
     .font-mono-tech {
       font-family: var(--font-mono);
@@ -83,7 +123,7 @@
     canvas {
       display: block;
       outline: none;
-      touch-action: none;
+      touch-action: pan-y pinch-zoom;
     }
     [dir="rtl"] .rtl-flip {
       transform: scaleX(-1);
@@ -105,7 +145,7 @@
         </div>
         <div>
           <div class="flex items-center gap-1.5">
-            <span class="font-bold text-sm sm:text-base tracking-tight text-white">BatteryLab <span class="text-cyan-400">3D</span></span>
+            <h1 class="font-bold text-sm sm:text-base tracking-tight text-white">BatteryLab <span class="text-cyan-400">3D</span></h1>
             <span class="hidden sm:inline-block text-[10px] font-mono-tech uppercase px-1.5 py-0.5 rounded bg-slate-800 text-cyan-400 border border-slate-700">v2.4 LAB</span>
           </div>
           <p class="hidden md:block text-[11px] text-slate-400 leading-none" data-i18n="appSubtitle">3D Battery Pack &amp; Circuit Engineering Suite</p>
@@ -456,10 +496,10 @@
         <!-- Header & Load Configuration Bar -->
         <div class="bg-slate-900 border border-slate-800 rounded-2xl p-4 sm:p-5 flex flex-col md:flex-row md:items-center justify-between gap-4">
           <div>
-            <h1 class="text-lg sm:text-xl font-bold text-white flex items-center gap-2">
+            <h2 class="text-lg sm:text-xl font-bold text-white flex items-center gap-2">
               <i data-lucide="zap" class="w-5 h-5 text-emerald-400"></i>
               <span data-i18n="calcTitle">Battery Pack Electrical Engineering Calculator</span>
-            </h1>
+            </h2>
             <p class="text-xs text-slate-400 mt-1" data-i18n="calcSubtitle">
               Real-time analysis synchronized with your 3D battery pack topology, including internal resistance voltage sag and thermal loss.
             </p>
@@ -701,7 +741,7 @@
             </div>
             <div class="p-2 rounded-lg bg-slate-950 border border-slate-800">
               <div class="text-[10px] text-slate-400">Total Current</div>
-              <div id="lab-tel-i" class="text-sm font-bold text-cyan-400">0.0 mA</div>
+              <div id="lab-tel-i" class="text-sm font-bold text-cyan-400">11.4 mA</div>
             </div>
           </div>
           <div id="lab-diagnostics-list" class="space-y-1.5 pt-1"></div>
@@ -1027,7 +1067,7 @@
       const box = document.getElementById('toast-box');
       const content = document.getElementById('toast-content');
       const iconColor = type === 'error' ? 'text-rose-400' : type === 'warn' ? 'text-amber-400' : 'text-cyan-400';
-      content.innerHTML = `<span class="w-2 h-2 rounded-full ${type === 'error' ? 'bg-rose-500' : type === 'warn' ? 'bg-amber-400' : 'bg-cyan-400'}"></span><span>${msg}</span>`;
+      content.innerHTML = `<span class="w-2 h-2 rounded-full ${type === 'error' ? 'bg-rose-500' : type === 'warn' ? 'bg-amber-400' : 'bg-cyan-400'}"></span><span>${escapeHTML(msg)}</span>`;
       box.classList.remove('opacity-0', 'translate-y-2');
       clearTimeout(box._timer);
       box._timer = setTimeout(() => {
@@ -1276,6 +1316,26 @@
     let draggingBatteryId = null;
     let dragOffset = new THREE.Vector3();
     let needsRender = true;
+    let renderFrameId = null;
+
+    function schedule3DRender() {
+      needsRender = true;
+      if (renderer && renderFrameId === null) {
+        renderFrameId = requestAnimationFrame(animate3D);
+      }
+    }
+
+    function animate3D() {
+      renderFrameId = null;
+      const controlsMoving = controls && controls.update();
+      if (renderer && (controlsMoving || needsRender)) {
+        renderer.render(scene, camera);
+        needsRender = false;
+      }
+      if (controlsMoving && renderFrameId === null) {
+        renderFrameId = requestAnimationFrame(animate3D);
+      }
+    }
 
     function createTextSprite(text, bgColor, textColor = '#ffffff') {
       const canvas = document.createElement('canvas');
@@ -1349,7 +1409,7 @@
       controls.maxPolarAngle = Math.PI / 2 - 0.05;
       controls.minDistance = 3;
       controls.maxDistance = 24;
-      controls.addEventListener('change', () => { needsRender = true; });
+      controls.addEventListener('change', schedule3DRender);
 
       raycaster = new THREE.Raycaster();
       pointer = new THREE.Vector2();
@@ -1359,17 +1419,19 @@
       dom.addEventListener('pointerdown', onThreePointerDown);
       dom.addEventListener('pointermove', onThreePointerMove);
       dom.addEventListener('pointerup', onThreePointerUp);
-      window.addEventListener('resize', onThreeResize);
-
-      // Render Loop (Render-on-demand / throttled)
-      function animate() {
-        requestAnimationFrame(animate);
-        if (controls.update() || needsRender) {
-          renderer.render(scene, camera);
-          needsRender = false;
-        }
+      window.addEventListener('resize', () => {
+        onThreeResize();
+        if (state.activeSection === 'laboratory') renderBreadboardCanvas();
+      });
+      if (typeof ResizeObserver !== 'undefined') {
+        const labResizeObserver = new ResizeObserver(() => {
+          if (state.activeSection === 'laboratory') renderBreadboardCanvas();
+        });
+        labResizeObserver.observe(document.getElementById('lab-canvas-wrapper'));
       }
-      animate();
+
+      // Render only when the scene or camera changes; damping schedules its own frames.
+      schedule3DRender();
     }
 
     function onThreeResize() {
@@ -1381,7 +1443,7 @@
       camera.aspect = w / h;
       camera.updateProjectionMatrix();
       renderer.setSize(w, h);
-      needsRender = true;
+      schedule3DRender();
     }
 
     function disposeObject3D(obj) {
@@ -1499,7 +1561,7 @@
       }
 
       rebuild3DWires();
-      needsRender = true;
+      schedule3DRender();
     }
 
     function rebuild3DWires() {
@@ -1531,7 +1593,7 @@
         scene.add(mesh);
         wireMeshes.push(mesh);
       }
-      needsRender = true;
+      schedule3DRender();
     }
 
     function updatePointerNDC(event) {
@@ -1609,6 +1671,7 @@
           const grp = batteryMeshes.get(bat.id);
           if (grp) grp.position.set(bat.x, 0, bat.z);
           rebuild3DWires();
+          schedule3DRender();
         }
       }
     }
@@ -1637,6 +1700,7 @@
       let Vterm = Voc;
       let Pload = 0;
       let RloadEff = loadVal;
+      let powerLimitExceeded = false;
 
       if (pack.hasShortCircuit) {
         // Short circuit simulation
@@ -1661,7 +1725,8 @@
           if (disc >= 0 && Rint > 0) {
             I = (Voc - Math.sqrt(disc)) / (2 * Rint);
           } else {
-            I = Voc / (2 * Math.max(0.01, Rint)); // Max power transfer limit
+            I = Voc / (2 * Math.max(0.01, Rint)); // Maximum-power-transfer operating point
+            powerLimitExceeded = true;
           }
           Vterm = Math.max(0, Voc - I * Rint);
           Pload = Vterm * I;
@@ -1687,9 +1752,10 @@
       document.getElementById('kpi-power').textContent = `${Pload.toFixed(2)} W`;
       document.getElementById('kpi-ploss').textContent = `Internal Heat: ${Ploss.toFixed(2)} W`;
 
-      const hrs = Math.floor(runtimeHours);
-      const mins = Math.round((runtimeHours - hrs) * 60);
-      document.getElementById('kpi-runtime').textContent = I > 0 ? `${hrs}h ${mins}m` : '∞';
+      const totalMinutes = Number.isFinite(runtimeHours) && runtimeHours > 0 ? Math.round(runtimeHours * 60) : 0;
+      const hrs = Math.floor(totalMinutes / 60);
+      const mins = totalMinutes % 60;
+      document.getElementById('kpi-runtime').textContent = I > 0 && Ah > 0 ? `${hrs}h ${mins}m` : '∞';
       document.getElementById('kpi-energy').textContent = `${pack.energyWh.toFixed(2)} Wh`;
 
       // Step-by-Step Formulas
@@ -1751,6 +1817,10 @@
 
       // Warnings in Calculator
       const calcWarnings = [...pack.warnings];
+      if (powerLimitExceeded) {
+        calcWarnings.unshift({ level: 'warn', text: `Requested load power (${loadVal.toFixed(2)} W) exceeds the maximum-power-transfer limit for this pack. Values show the theoretical maximum-power operating point instead.` });
+      }
+      calcWarnings.push({ level: 'info', text: 'Runtime is an idealized estimate (Ah ÷ A). It assumes the entered capacity is usable and current stays constant; temperature, aging, discharge-rate effects, BMS cutoff, voltage limits and wiring losses can reduce actual runtime.' });
       if (cRate > 2.0 && !pack.hasShortCircuit) {
         calcWarnings.unshift({
           level: 'danger',
@@ -1918,9 +1988,10 @@
           A[nCathode][nCathode] += gLed;
           A[nAnode][nCathode] -= gLed;
           A[nCathode][nAnode] -= gLed;
-          // Norton current source for Vf drop
-          z[nAnode] -= gLed * vf;
-          z[nCathode] += gLed * vf;
+          // Norton equivalent for I = (V_anode - V_cathode - Vf) / R_dynamic.
+          // The source polarity must inject +G*Vf at the anode and -G*Vf at the cathode.
+          z[nAnode] += gLed * vf;
+          z[nCathode] -= gLed * vf;
         }
 
         // Stamp Voltage Sources with small internal resistance (0.05 Ohm) to prevent singular matrix on shorts
@@ -2015,7 +2086,7 @@
         const vDrop = v1 - v2;
         const vf = led.vf || 2.0;
         const iMa = vDrop > vf ? ((vDrop - vf) / 25) * 1000 : 0;
-        const burned = iMa > 55;
+        const burned = iMa > 50;
         if (burned) {
           alerts.push({ level: 'danger', text: `LED OVERCURRENT (${iMa.toFixed(0)} mA > 50 mA max)! Add a series current-limiting resistor.` });
         } else if (vDrop < -0.5) {
@@ -2873,15 +2944,24 @@
 
     function getSavedProjects() {
       try {
-        return JSON.parse(localStorage.getItem(STORAGE_KEY) || '[]');
+        const parsed = JSON.parse(localStorage.getItem(STORAGE_KEY) || '[]');
+        return Array.isArray(parsed)
+          ? parsed.filter(project => project && typeof project === 'object' && Array.isArray(project.batteries) && Array.isArray(project.wires))
+          : [];
       } catch {
         return [];
       }
     }
 
+    function escapeHTML(value) {
+      return String(value ?? '').replace(/[&<>"']/g, ch => ({
+        '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;'
+      })[ch]);
+    }
+
     function renderSavedProjectsList() {
       const listEl = document.getElementById('saved-projects-list');
-      const projects = getSavedProjects();
+      const projects = getSavedProjects().filter(p => p && typeof p === 'object' && Array.isArray(p.batteries) && Array.isArray(p.wires));
       if (projects.length === 0) {
         listEl.innerHTML = `<div class="text-center text-slate-500 py-4">No saved projects yet.</div>`;
         return;
@@ -2889,8 +2969,8 @@
       listEl.innerHTML = projects.map((proj, idx) => `
         <div class="flex items-center justify-between p-2.5 rounded-xl bg-slate-950 border border-slate-800">
           <div>
-            <div class="font-semibold text-slate-200">${proj.name}</div>
-            <div class="text-[10px] text-slate-400 font-mono-tech">${proj.date} • ${proj.batteries.length} cells</div>
+            <div class="font-semibold text-slate-200">${escapeHTML(proj.name)}</div>
+            <div class="text-[10px] text-slate-400 font-mono-tech">${escapeHTML(proj.date)} • ${proj.batteries.length} cells</div>
           </div>
           <div class="flex items-center gap-1.5">
             <button data-load-proj="${idx}" class="px-2.5 py-1 rounded bg-cyan-600 hover:bg-cyan-500 text-slate-950 font-semibold">Load</button>
@@ -2902,7 +2982,7 @@
       listEl.querySelectorAll('[data-load-proj]').forEach(btn => {
         btn.onclick = () => {
           const proj = getSavedProjects()[parseInt(btn.dataset.loadProj, 10)];
-          if (proj) {
+          if (proj && Array.isArray(proj.batteries) && Array.isArray(proj.wires)) {
             state.batteries = JSON.parse(JSON.stringify(proj.batteries));
             state.wires = JSON.parse(JSON.stringify(proj.wires));
             state.selectedBatteryId = state.batteries[0]?.id || null;
@@ -2924,8 +3004,12 @@
         btn.onclick = () => {
           const projects = getSavedProjects();
           projects.splice(parseInt(btn.dataset.delProj, 10), 1);
-          localStorage.setItem(STORAGE_KEY, JSON.stringify(projects));
-          renderSavedProjectsList();
+          try {
+            localStorage.setItem(STORAGE_KEY, JSON.stringify(projects));
+            renderSavedProjectsList();
+          } catch (error) {
+            showToast('Unable to update saved projects: browser storage is unavailable.', 'error');
+          }
         };
       });
     }
@@ -3022,17 +3106,17 @@
       document.getElementById('btn-cam-top').onclick = () => {
         camera.position.set(0, 12, 0.1);
         controls.target.set(0, 0, 0);
-        needsRender = true;
+        schedule3DRender();
       };
       document.getElementById('btn-cam-iso').onclick = () => {
         camera.position.set(0, 8.5, 9.5);
         controls.target.set(0, 0, 0);
-        needsRender = true;
+        schedule3DRender();
       };
       document.getElementById('btn-cam-front').onclick = () => {
         camera.position.set(0, 2.5, 11);
         controls.target.set(0, 0.5, 0);
-        needsRender = true;
+        schedule3DRender();
       };
 
       // Selected Battery Form Inputs
@@ -3060,10 +3144,10 @@
         const spec = CHEMISTRY_SPECS[val];
         if (spec) bat.voltage = spec.vNom;
       });
-      bindPropInput('prop-voltage', (bat, val) => { bat.voltage = Math.max(0.2, parseFloat(val) || 3.7); });
-      bindPropInput('prop-capacity', (bat, val) => { bat.capacity = Math.max(10, parseFloat(val) || 2000); });
-      bindPropInput('prop-rint', (bat, val) => { bat.rint = Math.max(0.001, parseFloat(val) || 0.03); });
-      bindPropInput('prop-soc', (bat, val) => { bat.soc = parseInt(val, 10); });
+      bindPropInput('prop-voltage', (bat, val) => { bat.voltage = Number.isFinite(parseFloat(val)) ? Math.max(0.2, Math.min(1000, parseFloat(val))) : 3.7; });
+      bindPropInput('prop-capacity', (bat, val) => { bat.capacity = Number.isFinite(parseFloat(val)) ? Math.max(10, Math.min(1000000, parseFloat(val))) : 2000; });
+      bindPropInput('prop-rint', (bat, val) => { bat.rint = Number.isFinite(parseFloat(val)) ? Math.max(0.001, Math.min(100000, parseFloat(val))) : 0.03; });
+      bindPropInput('prop-soc', (bat, val) => { bat.soc = Math.max(0, Math.min(100, Number.isFinite(parseInt(val, 10)) ? parseInt(val, 10) : 100)); });
 
       document.getElementById('btn-rotate-left').onclick = () => {
         const bat = state.batteries.find(b => b.id === state.selectedBatteryId);
@@ -3188,10 +3272,14 @@
           wires: state.wires,
           lab: { components: labState.components, wires: labState.wires }
         });
-        localStorage.setItem(STORAGE_KEY, JSON.stringify(projects.slice(0, 20)));
-        nameInput.value = '';
-        renderSavedProjectsList();
-        showToast(`Saved "${name}" locally.`);
+        try {
+          localStorage.setItem(STORAGE_KEY, JSON.stringify(projects.slice(0, 20)));
+          nameInput.value = '';
+          renderSavedProjectsList();
+          showToast(`Saved "${name}" locally.`);
+        } catch (error) {
+          showToast('Unable to save: browser storage is full or unavailable.', 'error');
+        }
       };
 
       document.getElementById('btn-export-png').onclick = () => {
