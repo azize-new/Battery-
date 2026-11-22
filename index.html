@@ -128,6 +128,33 @@
     [dir="rtl"] .rtl-flip {
       transform: scaleX(-1);
     }
+    /* Fresh, compact visual refresh */
+    :root {
+      --accent-mint: #34d399;
+      --accent-sky: #38bdf8;
+    }
+    body {
+      background:
+        radial-gradient(ellipse at 12% 0%, rgba(8,145,178,.13), transparent 34%),
+        radial-gradient(ellipse at 88% 8%, rgba(16,185,129,.10), transparent 30%),
+        #080f19;
+    }
+    button, input, select, textarea { border-radius: 0.7rem; }
+    button { transition: background-color .16s ease, border-color .16s ease, transform .16s ease, box-shadow .16s ease; }
+    button:not(:disabled):active { transform: translateY(1px) scale(.985); }
+    button:focus-visible, input:focus-visible, select:focus-visible {
+      outline: 2px solid rgba(56,189,248,.8);
+      outline-offset: 2px;
+    }
+    .section-view { animation: section-enter .22s ease-out; }
+    @keyframes section-enter { from { opacity: .72; transform: translateY(4px); } to { opacity: 1; transform: translateY(0); } }
+    #projects-modal > div { box-shadow: 0 24px 80px rgba(0,0,0,.48); }
+    #saved-projects-list > div { gap: 10px; transition: border-color .15s ease, background .15s ease; }
+    #saved-projects-list > div:hover { border-color: rgba(56,189,248,.45); background: rgba(15,35,51,.9); }
+    @media (max-width: 640px) {
+      header .flex.items-center.gap-1\.5 { gap: .35rem; }
+      #btn-undo, #btn-projects, #btn-export-png { padding-inline: .55rem; }
+    }
   </style>
 </head>
 <body class="h-screen flex flex-col overflow-hidden select-none">
@@ -183,6 +210,12 @@
         <i data-lucide="cpu" class="w-3.5 h-3.5 text-amber-400"></i>
         <span class="hidden md:inline" data-i18n="lowPerf">Eco GPU</span>
         <span id="low-perf-badge" class="w-2 h-2 rounded-full bg-slate-600"></span>
+      </button>
+
+      <!-- Undo last workspace change -->
+      <button id="btn-undo" disabled class="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-xs font-medium bg-slate-800/90 hover:bg-cyan-900/70 text-slate-300 border border-slate-700 disabled:opacity-40 disabled:cursor-not-allowed transition" title="Undo last change (Ctrl+Z)" aria-label="Undo last change">
+        <i data-lucide="undo-2" class="w-3.5 h-3.5"></i>
+        <span class="hidden sm:inline">Undo</span>
       </button>
 
       <!-- Save / Load Modal Trigger -->
@@ -2939,6 +2972,68 @@
       }
     }
 
+    // Undo history: stores compact, serializable workspace snapshots.
+    const undoHistory = [];
+    const UNDO_LIMIT = 40;
+    let lastUndoSnapshot = '';
+    function captureWorkspaceSnapshot() {
+      return {
+        batteries: JSON.parse(JSON.stringify(state.batteries)),
+        wires: JSON.parse(JSON.stringify(state.wires)),
+        selectedBatteryId: state.selectedBatteryId,
+        interactionMode: state.interactionMode,
+        calc: JSON.parse(JSON.stringify(state.calc)),
+        lab: {
+          tool: labState.tool,
+          dmmMode: labState.dmmMode,
+          redProbe: { ...labState.redProbe },
+          blackProbe: { ...labState.blackProbe },
+          components: JSON.parse(JSON.stringify(labState.components)),
+          wires: JSON.parse(JSON.stringify(labState.wires))
+        },
+        nextBatId, nextWireId, nextLabId
+      };
+    }
+    function recordUndoSnapshot() {
+      try {
+        const snapshot = captureWorkspaceSnapshot();
+        const encoded = JSON.stringify(snapshot);
+        if (lastUndoSnapshot && encoded !== lastUndoSnapshot) {
+          undoHistory.push(JSON.parse(lastUndoSnapshot));
+          if (undoHistory.length > UNDO_LIMIT) undoHistory.shift();
+        }
+        lastUndoSnapshot = encoded;
+        const undoButton = document.getElementById('btn-undo');
+        if (undoButton) undoButton.disabled = undoHistory.length === 0;
+      } catch (error) {
+        // A failed snapshot must never interrupt normal workspace interaction.
+      }
+    }
+    function undoWorkspaceChange() {
+      const previous = undoHistory.pop();
+      if (!previous) return;
+      state.batteries = previous.batteries;
+      state.wires = previous.wires;
+      state.selectedBatteryId = previous.selectedBatteryId;
+      state.interactionMode = previous.interactionMode;
+      state.calc = previous.calc;
+      labState.tool = previous.lab.tool;
+      labState.dmmMode = previous.lab.dmmMode;
+      labState.redProbe = previous.lab.redProbe;
+      labState.blackProbe = previous.lab.blackProbe;
+      labState.components = previous.lab.components;
+      labState.wires = previous.lab.wires;
+      nextBatId = previous.nextBatId;
+      nextWireId = previous.nextWireId;
+      nextLabId = previous.nextLabId;
+      lastUndoSnapshot = JSON.stringify(captureWorkspaceSnapshot());
+      refreshAllViews();
+      updateMultimeterAndLabUI();
+      const undoButton = document.getElementById('btn-undo');
+      if (undoButton) undoButton.disabled = undoHistory.length === 0;
+      showToast('Last change undone.');
+    }
+
     // LocalStorage Project Management
     const STORAGE_KEY = 'batterylab_3d_projects_v1';
 
@@ -2991,7 +3086,17 @@
             if (proj.lab) {
               labState.components = JSON.parse(JSON.stringify(proj.lab.components || []));
               labState.wires = JSON.parse(JSON.stringify(proj.lab.wires || []));
+              labState.tool = proj.lab.tool || 'select';
+              labState.dmmMode = proj.lab.dmmMode || 'V';
+              labState.redProbe = proj.lab.redProbe || { col: 2, row: 0 };
+              labState.blackProbe = proj.lab.blackProbe || { col: 2, row: 1 };
+              nextLabId = Math.max(1, ...labState.components.map(c => Number(c.id || 0) + 1));
             }
+            if (proj.calc && typeof proj.calc === 'object') state.calc = { ...state.calc, ...proj.calc };
+            undoHistory.length = 0;
+            lastUndoSnapshot = JSON.stringify(captureWorkspaceSnapshot());
+            const undoButton = document.getElementById('btn-undo');
+            if (undoButton) undoButton.disabled = true;
             refreshAllViews();
             updateMultimeterAndLabUI();
             document.getElementById('projects-modal').classList.add('hidden');
@@ -3018,6 +3123,24 @@
     // 10. INITIALIZATION & EVENT LISTENERS
     // =========================================================================
     window.addEventListener('DOMContentLoaded', () => {
+      // Capture pre-interaction state so Undo restores the previous workspace.
+      document.addEventListener('pointerdown', (event) => {
+        if (event.target.closest('#btn-undo, #btn-projects, #projects-modal, #lang-selector')) return;
+        recordUndoSnapshot();
+      }, true);
+      // Commit the post-action state after click, drag, or form input handlers finish.
+      ['click', 'pointerup', 'input', 'change'].forEach(eventName => {
+        document.addEventListener(eventName, () => setTimeout(recordUndoSnapshot, 0));
+      });
+      document.addEventListener('keydown', (event) => {
+        if ((event.ctrlKey || event.metaKey) && event.key.toLowerCase() === 'z') {
+          event.preventDefault();
+          recordUndoSnapshot();
+          undoWorkspaceChange();
+        }
+      });
+      document.getElementById('btn-undo').addEventListener('click', undoWorkspaceChange);
+
       initThreeWorkspace();
       initBreadboardInteractions();
 
@@ -3270,7 +3393,15 @@
           date: new Date().toLocaleDateString(),
           batteries: state.batteries,
           wires: state.wires,
-          lab: { components: labState.components, wires: labState.wires }
+          lab: {
+            tool: labState.tool,
+            dmmMode: labState.dmmMode,
+            redProbe: labState.redProbe,
+            blackProbe: labState.blackProbe,
+            components: labState.components,
+            wires: labState.wires
+          },
+          calc: state.calc
         });
         try {
           localStorage.setItem(STORAGE_KEY, JSON.stringify(projects.slice(0, 20)));
@@ -3306,6 +3437,7 @@
       // Boot default workspace
       loadBatteryPackPreset('3s1p');
       loadLabCircuitPreset('led_resistor');
+      lastUndoSnapshot = JSON.stringify(captureWorkspaceSnapshot());
       if (window.lucide) window.lucide.createIcons();
     });
   </script>

@@ -1,27 +1,29 @@
-Battery Lab 3D — Repair Kit
-============================
+Battery Lab 3D — Updated Project
+=================================
 
-Files:
-- apply_fixes.py: applies carefully checked edits to your existing index.html.
-- privacy.html: new privacy-policy page for the website.
+WHAT CHANGED
+- Refreshed the interface with a cleaner dark theme, cyan/mint highlights,
+  improved focus states, compact controls, and subtle section transitions.
+- Added an Undo button in the top toolbar and Ctrl+Z keyboard shortcut.
+- Undo history stores up to 40 workspace checkpoints in the current browser session.
+- Expanded project saving/loading to retain calculator settings, lab tools,
+  multimeter mode, probe positions, components, and wires.
+- Loading a project recalculates the next lab component ID to avoid collisions.
+- Existing project manager supports multiple named projects (up to 20 saved
+  locally in this browser).
+
+DEPLOY
+1. Extract this ZIP.
+2. Upload the contents of the Battery--main folder to the root of your GitHub
+   repository, replacing the existing files when prompted.
+3. Commit the changes and wait for Cloudflare Pages/Workers deployment.
+4. Open https://battery.batterylab.workers.dev/ and test Undo and Projects.
 
 IMPORTANT
-1. Download/clone your existing GitHub repository to your computer.
-2. Put apply_fixes.py in the same folder as the existing index.html.
-3. Run: python3 apply_fixes.py
-4. The script creates index.html.backup and updates index.html. If an expected
-   source block does not match, it stops without changing index.html.
-5. Copy privacy.html into the repository root.
-6. Upload/commit the updated index.html and new privacy.html to GitHub.
-
-Do not upload index.html.backup. Keep it locally as a backup.
-
-After deployment, check:
-- https://battery.batterylab.workers.dev/
-- https://battery.batterylab.workers.dev/privacy.html
-
-Scope:
-These are targeted repairs based on the current main/index.html source that was
-read during this session. They are not a complete browser-based QA pass. In
-particular, the 3D drag interactions, all calculator edge cases, mobile devices,
-and AdSense approval still require separate testing.
+- Projects are stored in the browser's localStorage; they do not synchronize
+  between different browsers or devices.
+- Undo history is temporary and is cleared when the page is reloaded.
+- JavaScript module syntax was checked. This is not a full live-browser QA pass;
+  test 3D dragging, breadboard interactions, calculations, and mobile layout
+  after deployment.
+- Keep a local copy of the previous repository as a backup.
