@@ -27,6 +27,3 @@ IMPORTANT
   test 3D dragging, breadboard interactions, calculations, and mobile layout
   after deployment.
 - Keep a local copy of the previous repository as a backup.
-
-
-Advanced Engineering Suite: open advanced.html from the main sidebar. It provides educational simulations and estimators; see UPDATE_NOTES.md for scope and limitations.
