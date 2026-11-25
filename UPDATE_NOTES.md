@@ -20,3 +20,10 @@
 ## Storage behavior
 - Saved projects use browser localStorage and are local to that browser.
 - Undo history is session-only and is cleared on page reload.
+
+## Advanced Engineering Suite addition
+- Added `advanced.html`, linked from the main workspace sidebar.
+- Includes simulated cell-voltage/temperature monitoring, illustrative discharge curve and CSV export, capacity-based SoH estimator, virtual oscilloscope, and electrical calculator.
+- These are educational simulations only; no real BMS control, hardware measurement, or certified battery model is provided.
+- Print buttons use the browser print dialog (choose Save as PDF).
+- Validate in a browser after deployment; no claim of complete interactive browser QA is made.
