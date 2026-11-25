@@ -3,7 +3,11 @@
 <head>
   <meta charset="UTF-8" />
   <script async src="https://www.googletagmanager.com/gtm.js?id=GTM-M46D26Z4"></script>
-<!-- Removed inline tracking snippet that was appearing as visible page text. -->
+<script>
+  window.dataLayer = window.dataLayer || [];
+  function gtag(){dataLayer.push(arguments);}
+  gtag('js', new Date());
+</script>
   <meta name="google-site-verification" content="nEdroAxk7Qwv6Vi8zyGGTBJIRJf1zGAntQyZ_Pq8E4I" />
   <script async src="https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=ca-pub-6540797721977706"
      crossorigin="anonymous"></script>
@@ -3080,21 +3084,14 @@
             nextBatId = Math.max(1, ...state.batteries.map(b => b.id + 1));
             nextWireId = Math.max(1, ...state.wires.map(w => w.id + 1));
             if (proj.lab) {
-              labState.components = JSON.parse(JSON.stringify(Array.isArray(proj.lab.components) ? proj.lab.components : []));
-              labState.wires = JSON.parse(JSON.stringify(Array.isArray(proj.lab.wires) ? proj.lab.wires : []));
+              labState.components = JSON.parse(JSON.stringify(proj.lab.components || []));
+              labState.wires = JSON.parse(JSON.stringify(proj.lab.wires || []));
               labState.tool = proj.lab.tool || 'select';
               labState.dmmMode = proj.lab.dmmMode || 'V';
               labState.redProbe = proj.lab.redProbe || { col: 2, row: 0 };
               labState.blackProbe = proj.lab.blackProbe || { col: 2, row: 1 };
-            } else {
-              labState.components = [];
-              labState.wires = [];
-              labState.tool = 'select';
-              labState.dmmMode = 'V';
-              labState.redProbe = { col: 2, row: 0 };
-              labState.blackProbe = { col: 2, row: 1 };
+              nextLabId = Math.max(1, ...labState.components.map(c => Number(c.id || 0) + 1));
             }
-            nextLabId = Math.max(1, ...labState.components.map(c => Number(c.id || 0) + 1));
             if (proj.calc && typeof proj.calc === 'object') state.calc = { ...state.calc, ...proj.calc };
             undoHistory.length = 0;
             lastUndoSnapshot = JSON.stringify(captureWorkspaceSnapshot());
@@ -3165,12 +3162,10 @@
       document.getElementById('btn-low-perf').addEventListener('click', () => {
         state.lowPerf = !state.lowPerf;
         const badge = document.getElementById('low-perf-badge');
-        if (badge) badge.className = state.lowPerf ? 'w-2 h-2 rounded-full bg-emerald-400' : 'w-2 h-2 rounded-full bg-slate-600';
-        if (renderer) {
-          renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, state.lowPerf ? 1.0 : 1.5));
-          rebuild3DScene();
-        }
-        showToast(state.lowPerf ? 'Low-Performance Mode Enabled' : 'Standard Render Quality Restored');
+        badge.className = state.lowPerf ? 'w-2 h-2 rounded-full bg-emerald-400' : 'w-2 h-2 rounded-full bg-slate-600';
+        renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, state.lowPerf ? 1.0 : 1.5));
+        rebuild3DScene();
+        showToast(state.lowPerf ? 'Low-Performance Mode Enabled (1.0x PixelRatio, Low-Poly)' : 'Standard Render Quality Restored');
       });
 
       // Add Battery Buttons
@@ -3419,38 +3414,23 @@
       };
 
       document.getElementById('btn-export-png').onclick = () => {
-        try {
-          let canvas;
-          if (state.activeSection === 'laboratory') {
-            canvas = document.getElementById('lab-canvas');
-          } else {
-            if (!renderer || !scene || !camera) throw new Error('3D renderer is not available.');
-            renderer.render(scene, camera);
-            canvas = renderer.domElement;
-          }
-          if (!canvas || typeof canvas.toDataURL !== 'function') throw new Error('Canvas is not available.');
-          const dataUrl = canvas.toDataURL('image/png');
-          const a = document.createElement('a');
-          a.href = dataUrl;
-          a.download = `BatteryLab3D_${state.packAnalysis?.topology || 'export'}.png`;
-          document.body.appendChild(a);
-          a.click();
-          a.remove();
-          showToast('Exported PNG snapshot.');
-        } catch (error) {
-          console.error('PNG export failed:', error);
-          showToast('PNG export failed. Please try again.', 'error');
+        let dataUrl = '';
+        if (state.activeSection === 'laboratory') {
+          dataUrl = document.getElementById('lab-canvas').toDataURL('image/png');
+        } else {
+          renderer.render(scene, camera);
+          dataUrl = renderer.domElement.toDataURL('image/png');
         }
+        const a = document.createElement('a');
+        a.href = dataUrl;
+        a.download = `BatteryLab3D_${state.packAnalysis?.topology || 'export'}.png`;
+        a.click();
+        showToast('Exported PNG snapshot.');
       };
 
       document.getElementById('btn-reset-all').onclick = () => {
-        if (!window.confirm('Reset the battery pack and laboratory to their default state?')) return;
         loadBatteryPackPreset('1s1p');
         loadLabCircuitPreset('led_resistor');
-        undoHistory.length = 0;
-        lastUndoSnapshot = JSON.stringify(captureWorkspaceSnapshot());
-        const undoButton = document.getElementById('btn-undo');
-        if (undoButton) undoButton.disabled = true;
         showToast('Workspace reset to default.');
       };
 
